@@ -1,0 +1,229 @@
+# Implementation Plan - CRM Backend & Integration
+
+This plan outlines the design and implementation of a production-ready Node.js/Express.js backend written in TypeScript, integrated with a PostgreSQL database via Prisma ORM, using JWT authentication, and connected to the Next.js frontend.
+
+## User Review Required
+
+> [!IMPORTANT]
+> - **PostgreSQL Instance**: We assume a local or cloud PostgreSQL instance is available. We will output the `.env` configuration file with placeholder credentials, which you can customize.
+> - **Authentication Flow**: Since the current frontend has no login/signup screens (it automatically starts with `Sarah Chen` as admin), we will build a sleek and modern **Login/Signup Page** on the frontend that redirects unauthenticated users and stores the JWT securely in `localStorage`.
+> - **Workspace Configuration**: We will default configure CORS to allow requests from `http://localhost:3000` (Next.js default) and run the Express API on port `5000`.
+
+## Architecture & Scalable Folder Structure
+
+The backend will follow a clean, modular architecture:
+
+- **Routes**: Define endpoints and apply validation and authentication middleware.
+- **Controllers**: Handle HTTP requests/responses, extract parameters, and call service layers.
+- **Services**: Contain all core business logic and direct database queries using Prisma.
+- **Middleware**: Custom error handling, JWT parsing, and input schema validations (using `zod`).
+- **Validations**: Define request body validation schemas using `zod`.
+- **Config**: Set up variables, database client instances, and utility setups.
+- **Utils**: Custom error classes, response helpers, and cryptographic utils.
+
+```
+backend/
+├── prisma/
+│   ├── schema.prisma      # Prisma database schemas & relations
+│   └── seed.ts            # Seed script with default users/contacts/deals/activities
+├── src/
+│   ├── app.ts             # Express App setup & middleware configurations
+│   ├── server.ts          # Server listener start
+│   ├── config/
+│   │   └── db.ts          # Prisma Client setup
+│   ├── middleware/
+│   │   ├── auth.ts        # JWT validation middleware
+│   │   ├── error.ts       # Global error handler
+│   │   └── validate.ts    # Request validation middleware
+│   ├── controllers/
+│   │   ├── auth.controller.ts
+│   │   ├── contact.controller.ts
+│   │   ├── deal.controller.ts
+│   │   ├── activity.controller.ts
+│   │   └── dashboard.controller.ts
+│   ├── routes/
+│   │   ├── index.ts
+│   │   ├── auth.routes.ts
+│   │   ├── contact.routes.ts
+│   │   ├── deal.routes.ts
+│   │   ├── activity.routes.ts
+│   │   └── dashboard.routes.ts
+│   ├── services/
+│   │   ├── auth.service.ts
+│   │   ├── contact.service.ts
+│   │   ├── deal.service.ts
+│   │   ├── activity.service.ts
+│   │   └── dashboard.service.ts
+│   ├── utils/
+│   │   ├── errors.ts      # Custom ApiError class
+│   │   ├── jwt.ts         # Token generator / verifier
+│   │   └── response.ts    # JSON response formatter helper
+│   └── validations/
+│       ├── auth.validation.ts
+│       ├── contact.validation.ts
+│       ├── deal.validation.ts
+│       └── activity.validation.ts
+├── tsconfig.json
+├── package.json
+└── .env
+```
+
+---
+
+## Required Database Tables (PostgreSQL Schema)
+
+To maintain standard snake_case naming in PostgreSQL and camelCase in TypeScript, we'll use Prisma's `@map` and `@@map` attributes.
+
+### 1. `users` Table
+- `id`: `String` (UUID, primary key)
+- `name`: `String`
+- `email`: `String` (unique index)
+- `password`: `String` (hashed)
+- `role`: `Enum` (`admin`, `manager`, `rep`)
+- `isActive`: `Boolean` (default: true)
+- `avatar`: `String` (optional initial string like 'SC')
+- `createdAt`: `DateTime` (default: now)
+- `updatedAt`: `DateTime` (updated on modification)
+
+### 2. `contacts` Table
+- `id`: `String` (UUID, primary key)
+- `firstName`: `String`
+- `lastName`: `String`
+- `email`: `String`
+- `phone`: `String` (optional)
+- `company`: `String` (optional)
+- `jobTitle`: `String` (optional)
+- `status`: `Enum/String` (`active`, `inactive`, `blocked`, default: `active`)
+- `source`: `Enum/String` (`website`, `referral`, `cold_outreach`, `event`, `partner`, `other`, default: `other`)
+- `tags`: `String[]` (native PG text array)
+- `notes`: `String` (optional text)
+- `assignedToId`: `String` (optional, foreign key to `users`)
+- `createdById`: `String` (foreign key to `users`)
+- `createdAt`: `DateTime` (default: now)
+- `updatedAt`: `DateTime` (updated on modification)
+
+### 3. `deals` Table
+- `id`: `String` (UUID, primary key)
+- `title`: `String`
+- `contactId`: `String` (optional, foreign key to `contacts`, cascades on delete or set null)
+- `company`: `String` (optional)
+- `value`: `Float`
+- `stage`: `Enum/String` (`new`, `contacted`, `demo_scheduled`, `proposal_sent`, `negotiation`, `closed_won`, `closed_lost`)
+- `priority`: `Enum/String` (`low`, `medium`, `high`, default: `medium`)
+- `expectedCloseDate`: `DateTime` (optional)
+- `closeReason`: `Enum/String` (`won`, `lost`, `no_decision`, `cancelled`, or empty)
+- `closedAt`: `DateTime` (optional)
+- `assignedToId`: `String` (optional, foreign key to `users`)
+- `createdById`: `String` (foreign key to `users`)
+- `notes`: `String` (optional text)
+- `createdAt`: `DateTime` (default: now)
+- `updatedAt`: `DateTime` (updated on modification)
+
+### 4. `activities` Table
+- `id`: `String` (UUID, primary key)
+- `type`: `Enum/String` (`call`, `email`, `meeting`, `note`, `task`)
+- `subject`: `String`
+- `description`: `String` (optional text)
+- `contactId`: `String` (optional, foreign key to `contacts`)
+- `dealId`: `String` (optional, foreign key to `deals`)
+- `assignedToId`: `String` (optional, foreign key to `users`)
+- `dueDate`: `DateTime` (optional)
+- `completed`: `Boolean` (default: false)
+- `completedAt`: `DateTime` (optional)
+- `createdById`: `String` (foreign key to `users`)
+- `createdAt`: `DateTime` (default: now)
+
+---
+
+## API Endpoints
+
+All APIs (except public login/register) will require a `Bearer <token>` in the `Authorization` header.
+
+### 1. Authentication (`/api/auth`)
+- `POST /api/auth/register` - Create a new user (admin/manager/rep).
+- `POST /api/auth/login` - Verify password and return User details + JWT access token.
+- `GET /api/auth/me` - Return the current user payload decoded from JWT.
+
+### 2. Contacts (`/api/contacts`)
+- `GET /api/contacts` - List contacts with filter queries (`q`, `status`, `source`).
+- `GET /api/contacts/:id` - Get detail of a contact, including linked deals count and activities count.
+- `POST /api/contacts` - Create new contact (requires validation).
+- `PUT /api/contacts/:id` - Update contact fields.
+- `DELETE /api/contacts/:id` - Delete contact.
+- `POST /api/contacts/bulk` - Perform bulk action: `{"action": "assign" | "tag" | "delete", "ids": string[], "data": any}`.
+
+### 3. Deals (`/api/deals`)
+- `GET /api/deals` - Retrieve all deals (optionally filtered by stage).
+- `GET /api/deals/:id` - Retrieve a single deal.
+- `POST /api/deals` - Create a deal.
+- `PUT /api/deals/:id` - Update deal parameters.
+- `PUT /api/deals/:id/stage` - Update a deal's stage (Kanban drop/update).
+- `DELETE /api/deals/:id` - Delete deal.
+
+### 4. Activities (`/api/activities`)
+- `GET /api/activities` - Get activities, optionally filtered by `contactId`, `dealId`, or type.
+- `POST /api/activities` - Create activity.
+- `PUT /api/activities/:id` - Update activity parameters.
+- `PUT /api/activities/:id/complete` - Toggle completion status.
+- `DELETE /api/activities/:id` - Delete activity.
+
+### 5. Dashboard (`/api/dashboard`)
+- `GET /api/dashboard/metrics` - Aggregated stats for the dashboard tiles (Totals, Conversion, Close counts) and stage value distributions.
+
+---
+
+## Implementation Steps
+
+### Phase 1: Backend Setup
+1. **Initialize Backend**: Create `backend/package.json` with TypeScript, Express, Prisma, Zod, JWT, CORS, bcrypt, etc. Configure `tsconfig.json`.
+2. **Prisma Schema**: Create database schema in `backend/prisma/schema.prisma`.
+3. **Database Migration**: Run migration to create tables in PostgreSQL (written as instructions for user if CLI fails).
+4. **Seed Database**: Write seed script `prisma/seed.ts` with matching mock data from `frontend/lib/mockData.ts` to populated the DB.
+5. **App Core**: Implement `src/app.ts`, base configuration files, custom errors, global error handling, and response helpers.
+6. **Authentication Layer**: Implement JWT utilities, Bcrypt hashing, custom validation handler, and `/api/auth` controllers/routes.
+7. **Business Modules**: Build CRUD routes, validation schemas, controllers, and services for:
+   - Contacts
+   - Deals
+   - Activities
+   - Dashboard Metrics
+
+### Phase 2: Frontend Integration
+1. **Configure Environment**: Create `frontend/.env.local` to define `NEXT_PUBLIC_API_URL`.
+2. **API Client & Context**:
+   - Create a central fetcher `frontend/lib/api.ts` that automatically includes the JWT from `localStorage`.
+   - Update `frontend/lib/context.tsx` (`AuthProvider`) to:
+     - Check for token on load.
+     - Call `GET /api/auth/me` to set user state.
+     - Provide a real `login` method calling `POST /api/auth/login`.
+     - Provide a real `logout` method clearing token and resetting states.
+3. **Authentication Screens**:
+   - Create a beautiful dark-mode **Login / Register Page** at `frontend/app/login/page.tsx`.
+   - Intercept unauthenticated visits in `root-layout.tsx` (if user is null and path is not `/login`, display the login form).
+4. **Fetch Hooks**:
+   - Implement SWR-based or standard custom React hooks for fetching data:
+     - `useContacts`
+     - `useDeals`
+     - `useActivities`
+     - `useDashboardMetrics`
+5. **Dynamic Operations**:
+   - Hook up "New Contact", "New Deal", and "New Activity" creation modals/forms.
+   - Hook up activity completion toggle (checkbox click).
+   - Hook up Kanban stage-drag (if applicable) or edit stage in detail panel.
+   - Replace export/filter buttons with correct operations.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+We will write a verification test script to hit endpoints:
+- `ts-node src/scripts/verify-api.ts` which tests:
+  - Register & Login
+  - Getting profile (`/api/auth/me`)
+  - CRUD operations on Contact, Deal, and Activity
+  - Dashboard calculations
+
+### Manual Verification
+- Deploy backend and run `pnpm dev` for frontend.
+- Log in using seeded credentials (e.g. `sarah@company.com` / `password123`).
+- Create contacts, deals, and activities, verifying changes are persisted and correctly recalculated on the dashboard.
