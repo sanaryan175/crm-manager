@@ -70,6 +70,7 @@ enum AuditAction {
   logout
   invite_sent
   invite_accepted
+  invite_revoked
   permission_changed
   role_changed
 }
@@ -162,18 +163,19 @@ model RolePermission {
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 model User {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  roleId         String   @map("role_id")
-  name           String
-  email          String
-  password       String
-  isActive       Boolean  @default(true) @map("is_active")
-  avatar         String?
-  isOwner        Boolean  @default(false) @map("is_owner")
-  lastLoginAt    DateTime? @map("last_login_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  organizationId     String   @map("organization_id")
+  roleId             String   @map("role_id")
+  name               String
+  email              String
+  password           String
+  isActive           Boolean  @default(true) @map("is_active")
+  avatar             String?
+  isOwner            Boolean  @default(false) @map("is_owner")
+  onboardingComplete Boolean  @default(true) @map("onboarding_complete")
+  lastLoginAt        DateTime? @map("last_login_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   // Relations
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -200,6 +202,7 @@ model Invitation {
   roleId         String           @map("role_id")
   invitedById    String           @map("invited_by_id")
   token          String           @unique   // secure random token (hashed in DB)
+  tokenPrefix    String?          @map("token_prefix")
   status         InvitationStatus @default(pending)
   expiresAt      DateTime         @map("expires_at")
   acceptedAt     DateTime?        @map("accepted_at")
@@ -209,6 +212,7 @@ model Invitation {
   role         Role         @relation(fields: [roleId], references: [id])
   invitedBy    User         @relation("InvitationSender", fields: [invitedById], references: [id])
 
+  @@index([tokenPrefix, status])
   @@map("invitations")
 }
 

@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   User, Lock, Building2, Bell, Users, Mail,
-  Plus, Trash2, Shield, Crown, ChevronDown, X, Clock,
+  Plus, Trash2, Shield, Crown, ChevronDown, X, Clock, SlidersHorizontal,
 } from 'lucide-react';
 import Card, { CardHeader } from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import Modal from '@/components/ui/modal';
-import { useAuth } from '@/lib/context';
-import { useTeamMembers, useInvitations, useRoles } from '@/lib/hooks';
+import { useAuth, useUI } from '@/lib/context';
+import { useTeamMembers, useInvitations, useRoles, useOrganization } from '@/lib/hooks';
 import { INVITE_PERMISSIONS } from '@/lib/rbac';
+import { CURRENCIES } from '@/lib/regions';
+import { apiFetch } from '@/lib/api';
 
 // ─── Role badge colour mapping ────────────────────────────────────────────────
 const ROLE_BADGE: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info'> = {
@@ -35,7 +38,7 @@ function InviteModal({
 }) {
   const { roles }                       = useRoles();
   const { sendInvitation }              = useInvitations();
-  const { addToast }                    = useToastShim();
+  const { addToast }                    = useUI();
   const [email, setEmail]               = useState('');
   const [roleId, setRoleId]             = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,30 +124,238 @@ function InviteModal({
   );
 }
 
-// tiny shim so InviteModal can access toasts without prop drilling
-function useToastShim() {
-  const { useUI } = require('@/lib/context');
-  return useUI();
+// ─── Edit Profile Form ────────────────────────────────────────────────────────
+function EditProfileForm() {
+  const { user, refreshUser } = useAuth();
+  const { addToast } = useUI();
+  const [name,        setName]        = useState(user?.name ?? '');
+  const [avatarUrl,   setAvatarUrl]   = useState(user?.avatar && !/^[A-Z]{1,2}$/.test(user.avatar) ? user.avatar : '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const inp = 'w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { addToast({ type: 'error', message: 'Name cannot be empty.' }); return; }
+    setIsSubmitting(true);
+    try {
+      await apiFetch('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: name.trim(), avatar: avatarUrl.trim() || undefined }),
+      });
+      await refreshUser();
+      addToast({ type: 'success', message: 'Profile updated.' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to update profile.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display Name</label>
+        <input className={inp} value={name} onChange={e => setName(e.target.value)} placeholder="Sarah Chen" required />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Avatar URL <span className="font-normal normal-case text-muted-foreground/60">(optional)</span></label>
+        <input type="url" className={inp} value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} placeholder="https://example.com/photo.jpg" />
+      </div>
+      <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+        {isSubmitting ? 'Saving...' : 'Save Changes'}
+      </button>
+    </form>
+  );
+}
+
+// ─── Org Edit Form ────────────────────────────────────────────────────────────
+function OrgEditForm({
+  org,
+  onSave,
+}: {
+  org: any;
+  onSave: (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string }) => Promise<void>;
+}) {
+  const { addToast } = useUI();
+  const [name,        setName]        = useState(org?.name ?? '');
+  const [country,     setCountry]     = useState(org?.country ?? '');
+  const [currency,    setCurrency]    = useState(org?.currency ?? '');
+  const [timezone,    setTimezone]    = useState(org?.timezone ?? '');
+  const [website,     setWebsite]     = useState(org?.website ?? '');
+  const [submitting,  setSubmitting]  = useState(false);
+
+  const inp = 'w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { addToast({ type: 'error', message: 'Organization name is required.' }); return; }
+    setSubmitting(true);
+    try {
+      await onSave({ name: name.trim(), country, currency, timezone, website: website.trim() || undefined });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to update organization.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Organization Name *</label>
+        <input className={inp} value={name} onChange={e => setName(e.target.value)} required />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Country</label>
+          <input className={inp} value={country} onChange={e => setCountry(e.target.value)} placeholder="US" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Currency</label>
+          <select className={inp} value={currency} onChange={e => setCurrency(e.target.value)}>
+            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timezone</label>
+        <input className={inp} value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="UTC" />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Website <span className="font-normal normal-case text-muted-foreground/60">(optional)</span></label>
+        <input type="url" className={inp} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://company.com" />
+      </div>
+      <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+        {submitting ? 'Saving...' : 'Save Changes'}
+      </button>
+    </form>
+  );
+}
+
+// ─── Change Password Form ─────────────────────────────────────────────────────
+function ChangePasswordForm() {
+  const { addToast } = useUI();
+  const [current,   setCurrent]   = useState('');
+  const [newPw,     setNewPw]     = useState('');
+  const [confirm,   setConfirm]   = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const inp = 'w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPw.length < 8) { addToast({ type: 'error', message: 'New password must be at least 8 characters.' }); return; }
+    if (newPw !== confirm)  { addToast({ type: 'error', message: 'Passwords do not match.' }); return; }
+    setSubmitting(true);
+    try {
+      await apiFetch('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: current, newPassword: newPw }),
+      });
+      addToast({ type: 'success', message: 'Password changed successfully.' });
+      setCurrent(''); setNewPw(''); setConfirm('');
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to change password.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Password</label>
+        <input type="password" className={inp} value={current} onChange={e => setCurrent(e.target.value)} required />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Password</label>
+        <input type="password" className={inp} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min 8 characters" required />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm New Password</label>
+        <input type="password" className={`${inp} ${confirm && newPw !== confirm ? 'border-red-500/60' : confirm && newPw === confirm ? 'border-green-500/60' : ''}`} value={confirm} onChange={e => setConfirm(e.target.value)} required />
+        {confirm && newPw !== confirm && <p className="text-xs text-red-500">Passwords do not match</p>}
+      </div>
+      <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+        {submitting ? 'Updating...' : 'Update Password'}
+      </button>
+    </form>
+  );
 }
 
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user, hasPermission }         = useAuth();
+  const { addToast }                    = useUI();
+  const searchParams                    = useSearchParams();
   const { members, isLoading: membersLoading, deactivateUser, changeRole } = useTeamMembers();
-  const { invitations, isLoading: invLoading, revokeInvitation }           = useInvitations();
+  const { invitations, isLoading: invLoading, revokeInvitation, resendInvitation } = useInvitations();
   const { roles }                       = useRoles();
+  const { organization, updateOrganization } = useOrganization();
   const [inviteOpen, setInviteOpen]     = useState(false);
-  const [activeTab, setActiveTab]       = useState<'profile' | 'team' | 'security' | 'notifications'>('profile');
+
+  // Read tab from URL query param (?tab=preferences etc.)
+  const tabFromUrl = searchParams.get('tab');
+  const validTabs = ['profile', 'team', 'organization', 'security', 'notifications', 'preferences'] as const;
+  type TabId = typeof validTabs[number];
+  const initialTab: TabId = validTabs.includes(tabFromUrl as TabId) ? (tabFromUrl as TabId) : 'profile';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+
+  // Sync if URL changes
+  useEffect(() => {
+    if (tabFromUrl && validTabs.includes(tabFromUrl as TabId)) {
+      setActiveTab(tabFromUrl as TabId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabFromUrl]);
 
   const canInvite    = hasPermission('user.invite');
   const canManage    = hasPermission('user.update') || hasPermission('user.remove');
   const myRoleName   = user?.role?.name ?? '';
 
+  // ── Preferences state (localStorage-backed) ──────────────────────────────
+  const [prefTheme,      setPrefTheme]      = useState('system');
+  const [prefLanguage,   setPrefLanguage]   = useState('en');
+  const [prefTimezone,   setPrefTimezone]   = useState('UTC');
+  const [prefDateFormat, setPrefDateFormat] = useState('MM/DD/YYYY');
+  const [prefTimeFormat, setPrefTimeFormat] = useState('12h');
+  const [prefCurrency,   setPrefCurrency]   = useState('USD');
+
+  useEffect(() => {
+    setPrefTheme(localStorage.getItem('pref_theme')      ?? 'system');
+    setPrefLanguage(localStorage.getItem('pref_language')   ?? 'en');
+    setPrefTimezone(localStorage.getItem('pref_timezone')   ?? 'UTC');
+    setPrefDateFormat(localStorage.getItem('pref_dateFormat') ?? 'MM/DD/YYYY');
+    setPrefTimeFormat(localStorage.getItem('pref_timeFormat') ?? '12h');
+    setPrefCurrency(localStorage.getItem('pref_currency')   ?? 'USD');
+  }, []);
+
+  const handleSavePreferences = () => {
+    localStorage.setItem('pref_theme',      prefTheme);
+    localStorage.setItem('pref_language',   prefLanguage);
+    localStorage.setItem('pref_timezone',   prefTimezone);
+    localStorage.setItem('pref_dateFormat', prefDateFormat);
+    localStorage.setItem('pref_timeFormat', prefTimeFormat);
+    localStorage.setItem('pref_currency',   prefCurrency);
+    // Apply theme
+    if (prefTheme === 'dark') document.documentElement.classList.add('dark');
+    else if (prefTheme === 'light') document.documentElement.classList.remove('dark');
+    else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    }
+    addToast({ type: 'success', message: 'Preferences saved.' });
+  };
+
   const tabs = [
     { id: 'profile' as const,       label: 'Profile',       icon: User },
     { id: 'team' as const,          label: 'Team',          icon: Users },
+    { id: 'organization' as const,  label: 'Organization',  icon: Building2 },
     { id: 'security' as const,      label: 'Security',      icon: Lock },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
+    { id: 'preferences' as const,   label: 'Preferences',   icon: SlidersHorizontal },
   ];
 
   return (
@@ -184,11 +395,17 @@ export default function SettingsPage() {
       {/* ── Profile Tab ─────────────────────────────────────────────────── */}
       {activeTab === 'profile' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-lg space-y-4">
+          {/* ── View card ── */}
           <Card>
             <CardHeader title="Profile" description="Your personal account information" />
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xl font-bold">
-                {user?.avatar || user?.name?.slice(0, 2).toUpperCase()}
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xl font-bold overflow-hidden">
+                {user?.avatar && !/^[A-Z]{1,2}$/.test(user.avatar) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  user?.name?.slice(0, 2).toUpperCase()
+                )}
               </div>
               <div>
                 <p className="font-semibold text-foreground">{user?.name}</p>
@@ -200,11 +417,11 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-3">
               {[
-                { label: 'Full Name',     value: user?.name },
-                { label: 'Email',         value: user?.email },
-                { label: 'Role',          value: user?.role?.displayName },
-                { label: 'Organization',  value: user?.organization?.name },
-                { label: 'Account Type',  value: user?.isOwner ? 'Organization Owner' : 'Member' },
+                { label: 'Full Name',    value: user?.name },
+                { label: 'Email',        value: user?.email },
+                { label: 'Role',         value: user?.role?.displayName },
+                { label: 'Organization', value: user?.organization?.name },
+                { label: 'Account Type', value: user?.isOwner ? 'Organization Owner' : 'Member' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-muted-foreground">{item.label}</span>
@@ -212,6 +429,18 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          </Card>
+
+          {/* ── Edit Profile ── */}
+          <Card>
+            <CardHeader title="Edit Profile" description="Update your display name and avatar" />
+            <EditProfileForm />
+          </Card>
+
+          {/* ── Change Password ── */}
+          <Card>
+            <CardHeader title="Change Password" description="Use a strong password of at least 8 characters" action={<Shield className="w-5 h-5 text-primary" />} />
+            <ChangePasswordForm />
           </Card>
         </motion.div>
       )}
@@ -277,8 +506,9 @@ export default function SettingsPage() {
                                   if (!e.target.value) return;
                                   try {
                                     await changeRole(member.id, e.target.value);
+                                    addToast({ type: 'success', message: 'Role updated successfully' });
                                   } catch (err: any) {
-                                    alert(err.message);
+                                    addToast({ type: 'error', message: err.message || 'Failed to update role.' });
                                   }
                                   e.target.value = '';
                                 }}
@@ -299,8 +529,12 @@ export default function SettingsPage() {
                             <button
                               onClick={async () => {
                                 if (!confirm(`Deactivate ${member.name}?`)) return;
-                                try { await deactivateUser(member.id); }
-                                catch (err: any) { alert(err.message); }
+                                try {
+                                  await deactivateUser(member.id);
+                                  addToast({ type: 'success', message: 'User deactivated' });
+                                } catch (err: any) {
+                                  addToast({ type: 'error', message: err.message || 'Failed to deactivate user.' });
+                                }
                               }}
                               className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                               title="Deactivate user"
@@ -362,8 +596,26 @@ export default function SettingsPage() {
                       </div>
                       <button
                         onClick={async () => {
-                          try { await revokeInvitation(inv.id); }
-                          catch (err: any) { alert(err.message); }
+                          try {
+                            await resendInvitation(inv.id);
+                            addToast({ type: 'success', message: `Invitation resent to ${inv.email}` });
+                          } catch (err: any) {
+                            addToast({ type: 'error', message: err.message || 'Failed to resend invitation.' });
+                          }
+                        }}
+                        className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Resend invitation"
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await revokeInvitation(inv.id);
+                            addToast({ type: 'success', message: 'Invitation revoked' });
+                          } catch (err: any) {
+                            addToast({ type: 'error', message: err.message || 'Failed to revoke invitation.' });
+                          }
                         }}
                         className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         title="Revoke invitation"
@@ -396,6 +648,46 @@ export default function SettingsPage() {
               ))}
             </div>
           </Card>
+        </motion.div>
+      )}
+
+      {/* ── Organization Tab ────────────────────────────────────────────── */}
+      {activeTab === 'organization' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-lg space-y-4">
+          {/* View */}
+          <Card>
+            <CardHeader title="Organization" description="Your organization details" action={<Building2 className="w-5 h-5 text-primary" />} />
+            <div className="space-y-3">
+              {[
+                { label: 'Name',         value: organization?.name },
+                { label: 'Industry',     value: organization?.industry ?? '—' },
+                { label: 'Company Size', value: organization?.companySize ?? '—' },
+                { label: 'Country',      value: organization?.country },
+                { label: 'Currency',     value: organization?.currency },
+                { label: 'Timezone',     value: organization?.timezone },
+                { label: 'Website',      value: organization?.website ?? '—' },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <span className="text-sm text-muted-foreground">{item.label}</span>
+                  <span className="text-sm font-medium text-foreground">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Edit — owner only */}
+          {user?.isOwner && (
+            <Card>
+              <CardHeader title="Edit Organization" description="Update your organization settings" />
+              <OrgEditForm
+                org={organization}
+                onSave={async (updates) => {
+                  await updateOrganization(updates);
+                  addToast({ type: 'success', message: 'Organization updated.' });
+                }}
+              />
+            </Card>
+          )}
         </motion.div>
       )}
 
@@ -440,6 +732,107 @@ export default function SettingsPage() {
                   <Badge variant={item.value === 'Enabled' ? 'success' : 'default'} size="sm">{item.value}</Badge>
                 </div>
               ))}
+            </div>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ── Preferences Tab ─────────────────────────────────────────────── */}
+      {activeTab === 'preferences' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-lg space-y-4">
+          <Card>
+            <CardHeader title="Preferences" description="Personalise your workspace experience" action={<SlidersHorizontal className="w-5 h-5 text-primary" />} />
+
+            {/* Theme */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Theme</label>
+                <select value={prefTheme} onChange={(e) => setPrefTheme(e.target.value)}
+                  className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors">
+                  {[{v:'system',l:'System'},{v:'light',l:'Light'},{v:'dark',l:'Dark'}].map(o=>(
+                    <option key={o.v} value={o.v}>{o.l}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Language */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Language</label>
+                <select value={prefLanguage} onChange={(e) => setPrefLanguage(e.target.value)}
+                  className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors">
+                  {[{v:'en',l:'English'},{v:'es',l:'Spanish'},{v:'fr',l:'French'},{v:'de',l:'German'},{v:'ar',l:'Arabic'}].map(o=>(
+                    <option key={o.v} value={o.v}>{o.l}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Timezone */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timezone</label>
+                <select value={prefTimezone} onChange={(e) => setPrefTimezone(e.target.value)}
+                  className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors">
+                  {[
+                    {v:'UTC',l:'UTC'},
+                    {v:'America/New_York',l:'Eastern Time (US & Canada)'},
+                    {v:'America/Chicago',l:'Central Time (US & Canada)'},
+                    {v:'America/Los_Angeles',l:'Pacific Time (US & Canada)'},
+                    {v:'Europe/London',l:'London (GMT)'},
+                    {v:'Europe/Paris',l:'Paris, Berlin, Rome (CET)'},
+                    {v:'Asia/Dubai',l:'Dubai (GST)'},
+                    {v:'Asia/Kolkata',l:'Mumbai, Delhi (IST)'},
+                    {v:'Asia/Singapore',l:'Singapore (SGT)'},
+                    {v:'Asia/Tokyo',l:'Tokyo (JST)'},
+                    {v:'Australia/Sydney',l:'Sydney (AEST)'},
+                  ].map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              </div>
+
+              {/* Date Format */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Format</label>
+                <select value={prefDateFormat} onChange={(e) => setPrefDateFormat(e.target.value)}
+                  className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors">
+                  {[
+                    {v:'MM/DD/YYYY',l:'MM/DD/YYYY (e.g. 07/25/2025)'},
+                    {v:'DD/MM/YYYY',l:'DD/MM/YYYY (e.g. 25/07/2025)'},
+                    {v:'YYYY-MM-DD',l:'YYYY-MM-DD (e.g. 2025-07-25)'},
+                  ].map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              </div>
+
+              {/* Time Format */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time Format</label>
+                <div className="flex gap-3">
+                  {['12h','24h'].map((fmt)=>(
+                    <button key={fmt} type="button" onClick={() => setPrefTimeFormat(fmt)}
+                      className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
+                        prefTimeFormat === fmt ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40'
+                      }`}>
+                      {fmt === '12h' ? '12-hour (AM/PM)' : '24-hour'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Currency */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display Currency</label>
+                <select value={prefCurrency} onChange={(e) => setPrefCurrency(e.target.value)}
+                  className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors">
+                  {CURRENCIES.map(c=>(
+                    <option key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSavePreferences}
+                className="w-full mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
+              >
+                Save Preferences
+              </button>
             </div>
           </Card>
         </motion.div>

@@ -19,15 +19,23 @@ async function main() {
   await prisma.organization.deleteMany();
 
   // Create organization + owner atomically
-  const { organization: org, user: owner } = await OnboardingService.createOrganizationWithOwner({
-    organizationName: 'Acme Corp',
-    ownerName:        'Sarah Chen',
-    ownerEmail:       'sarah@company.com',
-    ownerPassword:    'password123',
-    country:          'US',
-    currency:         'USD',
+  const { organization: org, user: owner } = await OnboardingService.registerOwner({
+    ownerName:     'Sarah Chen',
+    ownerEmail:    'sarah@company.com',
+    ownerPassword: 'password123',
   });
   console.log('Created org:', org.name, '| Owner:', owner.name);
+
+  // Complete setup for the seed org
+  await OnboardingService.completeSetup(org.id, owner.id, {
+    name:        'Acme Corp',
+    industry:    'Technology',
+    companySize: '11–50 employees',
+    country:     'US',
+    currency:    'USD',
+    timezone:    'America/New_York',
+    fiscalYear:  1,
+  });
 
   // Get role IDs for seeding other users
   const roles = await prisma.role.findMany({ where: { organizationId: org.id } });

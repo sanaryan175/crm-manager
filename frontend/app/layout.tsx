@@ -1,14 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import RootLayoutServer from '@/components/layout/root-layout-server'
-
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
 
 export const metadata: Metadata = {
   title: 'CRM - Customer Relationship Management',
@@ -38,7 +31,37 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
+    <html lang="en" className="dark">
+      <head>
+        {/*
+          Inline script runs BEFORE React hydrates — reads pref_theme from
+          localStorage and applies the dark class immediately, preventing a
+          white flash on dark-mode users.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                try {
+                  var t = localStorage.getItem('pref_theme');
+                  if (t === 'light') {
+                    document.documentElement.classList.remove('dark');
+                  } else if (t === 'dark' || !t) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    // system
+                    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                      document.documentElement.classList.add('dark');
+                    } else {
+                      document.documentElement.classList.remove('dark');
+                    }
+                  }
+                } catch(e){}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased">
         <RootLayoutServer>
           {children}

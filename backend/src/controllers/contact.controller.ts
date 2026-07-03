@@ -19,7 +19,12 @@ export class ContactController {
 
   static async getContactById(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const contact = await ContactService.getContactById(req.params.id, req.user!.organizationId);
+      const contact = await ContactService.getContactById(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
       sendSuccess(res, contact);
     } catch (error) { next(error); }
   }
@@ -45,7 +50,12 @@ export class ContactController {
 
   static async deleteContact(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await ContactService.deleteContact(req.params.id, req.user!.organizationId);
+      const result = await ContactService.deleteContact(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
       sendSuccess(res, result, 'Contact deleted successfully');
     } catch (error) { next(error); }
   }
@@ -54,7 +64,12 @@ export class ContactController {
     try {
       const { action, ids, data } = req.body;
       const result = await ContactService.bulkOperations(
-        req.user!.organizationId, action, ids, data
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName,
+        action,
+        ids,
+        data
       );
       sendSuccess(res, result, 'Bulk operation completed');
     } catch (error) { next(error); }

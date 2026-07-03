@@ -43,10 +43,11 @@ export interface User {
   role: Role;
   isActive: boolean;
   isOwner: boolean;
+  onboardingComplete: boolean;
   avatar?: string;
   lastLoginAt?: Date | string;
   createdAt: Date | string;
-  organization?: Pick<Organization, 'id' | 'name' | 'country' | 'currency'>;
+  organization?: Pick<Organization, 'id' | 'name' | 'country' | 'currency' | 'setupComplete'>;
 }
 
 // Contact Types

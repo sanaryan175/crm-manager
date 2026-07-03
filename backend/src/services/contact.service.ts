@@ -2,6 +2,11 @@ import prisma from '../config/db';
 import { NotFoundError } from '../utils/errors';
 import { ContactStatus, ContactSource } from '@prisma/client';
 
+const CONTACT_INCLUDE = {
+  assignedTo: { select: { id: true, name: true, email: true, avatar: true } },
+  _count: { select: { deals: true, activities: true } },
+};
+
 export class ContactService {
   private static mapContact(contact: any) {
     const { _count, ...rest } = contact;
@@ -11,6 +16,18 @@ export class ContactService {
         ? { dealsCount: _count.deals, activitiesCount: _count.activities }
         : undefined,
     };
+  }
+
+  private static canAccess(contact: { createdById: string; assignedToId: string | null }, actorId: string, actorRoleName: string) {
+    return actorRoleName !== 'sales_rep' || contact.createdById === actorId || contact.assignedToId === actorId;
+  }
+
+  private static async ensureAssignableUser(organizationId: string, assignedToId?: string | null) {
+    if (!assignedToId) return;
+    const user = await prisma.user.findFirst({
+      where: { id: assignedToId, organizationId, isActive: true },
+    });
+    if (!user) throw new NotFoundError('Assigned user not found');
   }
 
   static async getContacts(
@@ -41,24 +58,26 @@ export class ContactService {
 
     const contacts = await prisma.contact.findMany({
       where,
-      include: {
-        assignedTo: { select: { id: true, name: true, email: true, avatar: true } },
-        _count: { select: { deals: true, activities: true } },
-      },
+      include: CONTACT_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
     return contacts.map(this.mapContact);
   }
 
-  static async getContactById(id: string, organizationId: string) {
+  static async getContactById(
+    id: string,
+    organizationId: string,
+    actorId?: string,
+    actorRoleName?: string
+  ) {
     const contact = await prisma.contact.findFirst({
       where: { id, organizationId },
-      include: {
-        assignedTo: { select: { id: true, name: true, email: true, avatar: true } },
-        _count: { select: { deals: true, activities: true } },
-      },
+      include: CONTACT_INCLUDE,
     });
     if (!contact) throw new NotFoundError('Contact not found');
+    if (actorId && actorRoleName && !this.canAccess(contact, actorId, actorRoleName)) {
+      throw new NotFoundError('Contact not found');
+    }
     return this.mapContact(contact);
   }
 
@@ -72,12 +91,11 @@ export class ContactService {
       tags?: string[]; notes?: string | null; assignedToId?: string | null;
     }
   ) {
+    await this.ensureAssignableUser(organizationId, data.assignedToId);
+
     const contact = await prisma.contact.create({
       data: { ...data, tags: data.tags || [], organizationId, createdById },
-      include: {
-        assignedTo: { select: { id: true, name: true, email: true, avatar: true } },
-        _count: { select: { deals: true, activities: true } },
-      },
+      include: CONTACT_INCLUDE,
     });
     return this.mapContact(contact);
   }
@@ -89,52 +107,51 @@ export class ContactService {
     actorRoleName: string,
     data: any
   ) {
-    const existing = await this.getContactById(id, organizationId);
-
-    // Sales rep can only update their own contacts
-    if (actorRoleName === 'sales_rep' &&
-        existing.createdById !== actorId &&
-        existing.assignedToId !== actorId) {
-      throw new NotFoundError('Contact not found');
-    }
+    await this.getContactById(id, organizationId, actorId, actorRoleName);
+    await this.ensureAssignableUser(organizationId, data.assignedToId);
 
     const contact = await prisma.contact.update({
       where: { id },
       data,
-      include: {
-        assignedTo: { select: { id: true, name: true, email: true, avatar: true } },
-        _count: { select: { deals: true, activities: true } },
-      },
+      include: CONTACT_INCLUDE,
     });
     return this.mapContact(contact);
   }
 
-  static async deleteContact(id: string, organizationId: string) {
-    await this.getContactById(id, organizationId);
+  static async deleteContact(id: string, organizationId: string, actorId: string, actorRoleName: string) {
+    await this.getContactById(id, organizationId, actorId, actorRoleName);
     await prisma.contact.delete({ where: { id } });
     return { success: true };
   }
 
   static async bulkOperations(
     organizationId: string,
+    actorId: string,
+    actorRoleName: string,
     action: 'assign' | 'tag' | 'delete',
     ids: string[],
     data: any
   ) {
-    // Verify all IDs belong to this org
-    const where = { id: { in: ids }, organizationId };
+    const where: any = { id: { in: ids }, organizationId };
+    if (actorRoleName === 'sales_rep') {
+      where.OR = [{ createdById: actorId }, { assignedToId: actorId }];
+    }
+
+    const allowedCount = await prisma.contact.count({ where });
+    if (allowedCount !== ids.length) throw new NotFoundError('One or more contacts not found');
 
     if (action === 'delete') {
       const r = await prisma.contact.deleteMany({ where });
       return { success: true, count: r.count };
     }
     if (action === 'assign') {
+      await this.ensureAssignableUser(organizationId, data?.userId);
       const r = await prisma.contact.updateMany({ where, data: { assignedToId: data.userId || null } });
       return { success: true, count: r.count };
     }
     if (action === 'tag') {
       const updates = ids.map((id) =>
-        prisma.contact.update({ where: { id }, data: { tags: { set: data.tags || [] } } })
+        prisma.contact.update({ where: { id }, data: { tags: { set: data?.tags || [] } } })
       );
       await prisma.$transaction(updates);
       return { success: true, count: ids.length };

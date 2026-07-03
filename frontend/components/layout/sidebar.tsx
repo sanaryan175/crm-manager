@@ -4,14 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  Users,
-  Briefcase,
-  CheckSquare,
-  Settings,
-  LogOut,
-  Menu,
-  X,
+  LayoutDashboard, Users, Briefcase, CheckSquare,
+  Settings, LogOut, X,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/context';
@@ -22,32 +16,23 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const menuItems = [
-  {
-    label: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    label: 'Contacts',
-    href: '/contacts',
-    icon: Users,
-  },
-  {
-    label: 'Deals',
-    href: '/deals',
-    icon: Briefcase,
-  },
-  {
-    label: 'Activities',
-    href: '/activities',
-    icon: CheckSquare,
-  },
-];
+// Each item declares the permission needed to see it.
+// 'dashboard' is visible to everyone (no permission guard).
+const NAV_ITEMS = [
+  { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard, permission: null },
+  { label: 'Contacts',   href: '/contacts',   icon: Users,           permission: 'contact.read' },
+  { label: 'Deals',      href: '/deals',      icon: Briefcase,       permission: 'deal.read' },
+  { label: 'Activities', href: '/activities', icon: CheckSquare,     permission: 'activity.read' },
+] as const;
 
 export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
-  const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const pathname    = usePathname();
+  const { user, logout, hasPermission } = useAuth();
+
+  // Filter nav items based on role permissions
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => item.permission === null || hasPermission(item.permission)
+  );
 
   return (
     <>
@@ -62,18 +47,17 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar panel */}
       <motion.aside
         initial={{ x: -280 }}
         animate={{ x: isOpen ? 0 : -280 }}
         transition={{ duration: 0.3 }}
         className={cn(
           'fixed lg:static w-64 h-full bg-card border-r border-border z-40',
-          'flex flex-col gap-6 p-6',
-          'lg:translate-x-0'
+          'flex flex-col gap-6 p-6 lg:translate-x-0'
         )}
       >
-        {/* Header */}
+        {/* Logo */}
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
@@ -86,12 +70,19 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname?.startsWith(item.href);
+        {/* Role badge */}
+        {user && (
+          <div className="px-3 py-2 rounded-lg bg-muted/30 border border-border/50">
+            <p className="text-xs text-muted-foreground">Logged in as</p>
+            <p className="text-sm font-semibold text-foreground capitalize">{user.role.displayName}</p>
+          </div>
+        )}
 
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1">
+          {visibleItems.map((item) => {
+            const Icon     = item.icon;
+            const isActive = pathname?.startsWith(item.href);
             return (
               <Link
                 key={item.href}
@@ -111,7 +102,7 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="space-y-2 border-t border-border pt-4">
+        <div className="space-y-1 border-t border-border pt-4">
           <Link
             href="/settings"
             className={cn(
@@ -133,9 +124,9 @@ export default function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </button>
         </div>
 
-        {/* User info */}
+        {/* User info at bottom */}
         {user && (
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground pt-2 border-t border-border">
             <p className="font-medium text-foreground truncate">{user.name}</p>
             <p className="truncate">{user.email}</p>
           </div>

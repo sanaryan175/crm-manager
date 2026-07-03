@@ -12,8 +12,9 @@ router.post('/accept', validate(acceptInvitationSchema), InvitationController.ac
 // All other routes require auth
 router.use(authenticate);
 
-router.get('/',         requirePermission('user.invite'), InvitationController.listInvitations);
-router.post('/',        requirePermission('user.invite'), validate(sendInvitationSchema), InvitationController.sendInvitation);
-router.delete('/:id',   requirePermission('user.invite'), InvitationController.revokeInvitation);
+router.get('/',           requirePermission('user.invite'), InvitationController.listInvitations);
+router.post('/',          requirePermission('user.invite'), validate(sendInvitationSchema), InvitationController.sendInvitation);
+router.post('/:id/resend',requirePermission('user.invite'), InvitationController.resendInvitation);
+router.delete('/:id',     requirePermission('user.invite'), InvitationController.revokeInvitation);
 
 export default router;

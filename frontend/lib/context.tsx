@@ -8,10 +8,11 @@ interface AuthContextType {
   user:        User | null;
   permissions: Set<string>;
   isLoading:   boolean;
-  login:       (email: string, password: string) => Promise<void>;
-  register:    (organizationName: string, ownerName: string, email: string, password: string) => Promise<void>;
+  login:       (email: string, password: string) => Promise<{ user: User; token: string }>;
+  register:    (ownerName: string, email: string, password: string, confirmPassword: string) => Promise<any>;
   logout:      () => void;
   hasPermission: (permission: string) => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,7 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch { /* ignore */ }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<{ user: User; token: string }> => {
     setIsLoading(true);
     try {
       const data = await apiFetch('/auth/login', {
@@ -65,6 +66,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(data.user);
       if (typeof window !== 'undefined') localStorage.setItem('auth_token', data.token);
       await _loadPermissions(data.user.role.id);
+      return data;
     } catch (error) {
       setUser(null);
       throw error;
@@ -73,22 +75,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [_loadPermissions]);
 
-  // register = create organization + owner
+  // register = create owner account only (org setup happens next)
   const register = useCallback(async (
-    organizationName: string,
-    ownerName:        string,
-    email:            string,
-    password:         string
+    ownerName:    string,
+    email:        string,
+    password:     string,
+    confirmPassword: string
   ) => {
     setIsLoading(true);
     try {
       const data = await apiFetch('/auth/register', {
         method: 'POST',
-        body:   JSON.stringify({ organizationName, ownerName, ownerEmail: email, ownerPassword: password }),
+        body:   JSON.stringify({ ownerName, ownerEmail: email, ownerPassword: password, confirmPassword }),
       });
       setUser(data.user);
       if (typeof window !== 'undefined') localStorage.setItem('auth_token', data.token);
       await _loadPermissions(data.user.role.id);
+      // return requiresSetup so caller knows to redirect to /onboarding/setup
+      return data;
     } catch (error) {
       setUser(null);
       throw error;
@@ -108,8 +112,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [permissions]
   );
 
+  const refreshUser = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (!token) return;
+    try {
+      const profile = await apiFetch('/auth/me');
+      setUser(profile);
+    } catch {
+      // silently ignore — stale data stays until next navigation
+    }
+  }, []);
+
+  // Listen for 401 events dispatched by apiFetch and auto-logout
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      setPermissions(new Set());
+      // addToast is not available here directly — we dispatch a second event
+      // that UIContext can listen to, OR we import addToast via a ref.
+      // Simplest approach: dispatch a storage event so the toast is shown
+      // from within a component that has UIContext access. Instead, we
+      // surface the event through a global CustomEvent that root-layout picks up.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:show-session-expired'));
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:unauthorized', handleUnauthorized);
+      return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, permissions, isLoading, login, register, logout, hasPermission }}>
+    <AuthContext.Provider value={{ user, permissions, isLoading, login, register, logout, hasPermission, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,6 +8,27 @@ const DEAL_INCLUDE = {
 };
 
 export class DealService {
+  private static canAccess(deal: { createdById: string; assignedToId: string | null }, actorId: string, actorRoleName: string) {
+    return actorRoleName !== 'sales_rep' || deal.createdById === actorId || deal.assignedToId === actorId;
+  }
+
+  private static async ensureAssignableUser(organizationId: string, assignedToId?: string | null) {
+    if (!assignedToId) return;
+    const user = await prisma.user.findFirst({
+      where: { id: assignedToId, organizationId, isActive: true },
+    });
+    if (!user) throw new NotFoundError('Assigned user not found');
+  }
+
+  private static async ensureContact(organizationId: string, contactId?: string | null) {
+    if (!contactId) return null;
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
+    });
+    if (!contact) throw new NotFoundError('Contact not found');
+    return contact;
+  }
+
   static async getDeals(
     organizationId: string,
     actorId: string,
@@ -25,12 +46,20 @@ export class DealService {
     return prisma.deal.findMany({ where, include: DEAL_INCLUDE, orderBy: { createdAt: 'desc' } });
   }
 
-  static async getDealById(id: string, organizationId: string) {
+  static async getDealById(
+    id: string,
+    organizationId: string,
+    actorId?: string,
+    actorRoleName?: string
+  ) {
     const deal = await prisma.deal.findFirst({
       where: { id, organizationId },
       include: DEAL_INCLUDE,
     });
     if (!deal) throw new NotFoundError('Deal not found');
+    if (actorId && actorRoleName && !this.canAccess(deal, actorId, actorRoleName)) {
+      throw new NotFoundError('Deal not found');
+    }
     return deal;
   }
 
@@ -44,12 +73,14 @@ export class DealService {
       expectedCloseDate?: Date | null; notes?: string | null; assignedToId?: string | null;
     }
   ) {
+    await this.ensureAssignableUser(organizationId, data.assignedToId);
+
     let finalCompany = data.company;
     if (data.contactId && !finalCompany) {
-      const contact = await prisma.contact.findFirst({
-        where: { id: data.contactId, organizationId },
-      });
-      if (contact) finalCompany = contact.company;
+      const contact = await this.ensureContact(organizationId, data.contactId);
+      finalCompany = contact?.company;
+    } else {
+      await this.ensureContact(organizationId, data.contactId);
     }
 
     let closedAt: Date | null = null;
@@ -76,13 +107,9 @@ export class DealService {
       notes?: string | null; assignedToId?: string | null;
     }
   ) {
-    const existing = await this.getDealById(id, organizationId);
-
-    if (actorRoleName === 'sales_rep' &&
-        existing.createdById !== actorId &&
-        existing.assignedToId !== actorId) {
-      throw new NotFoundError('Deal not found');
-    }
+    const existing = await this.getDealById(id, organizationId, actorId, actorRoleName);
+    await this.ensureAssignableUser(organizationId, data.assignedToId);
+    await this.ensureContact(organizationId, data.contactId);
 
     const updatedData: typeof data & { closedAt?: Date | null; closeReason?: DealCloseReason | null } = { ...data };
     if (data.stage && data.stage !== existing.stage) {
@@ -96,9 +123,10 @@ export class DealService {
 
   static async updateDealStage(
     id: string, organizationId: string,
+    actorId: string, actorRoleName: string,
     stage: DealStage, closeReason?: DealCloseReason
   ) {
-    const existing = await this.getDealById(id, organizationId);
+    const existing = await this.getDealById(id, organizationId, actorId, actorRoleName);
     const updateData: any = { stage };
     if (stage === DealStage.closed_won) { updateData.closedAt = new Date(); updateData.closeReason = DealCloseReason.won; }
     else if (stage === DealStage.closed_lost) { updateData.closedAt = new Date(); updateData.closeReason = closeReason || DealCloseReason.lost; }
@@ -108,8 +136,8 @@ export class DealService {
     return prisma.deal.update({ where: { id }, data: updateData, include: DEAL_INCLUDE });
   }
 
-  static async deleteDeal(id: string, organizationId: string) {
-    await this.getDealById(id, organizationId);
+  static async deleteDeal(id: string, organizationId: string, actorId: string, actorRoleName: string) {
+    await this.getDealById(id, organizationId, actorId, actorRoleName);
     await prisma.deal.delete({ where: { id } });
     return { success: true };
   }

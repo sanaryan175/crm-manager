@@ -3,11 +3,13 @@ import { ForbiddenError, NotFoundError } from '../utils/errors';
 
 export class UserService {
   static async listUsers(organizationId: string) {
-    return prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where:   { organizationId },
       include: { role: { select: { id: true, name: true, displayName: true } } },
       orderBy: { createdAt: 'asc' },
     });
+
+    return users.map(({ password: _pw, ...safe }) => safe);
   }
 
   static async getUserById(userId: string, organizationId: string) {

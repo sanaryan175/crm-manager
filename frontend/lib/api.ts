@@ -17,10 +17,15 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new Error('Network error. Please check your connection and try again.');
+  }
 
   const text = await response.text();
   let data;
@@ -31,6 +36,13 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   }
 
   if (!response.ok) {
+    // 401 — token expired or invalid; signal the auth context to log out
+    if (response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
+    }
     throw new Error(data.message || `API error: ${response.status}`);
   }
 

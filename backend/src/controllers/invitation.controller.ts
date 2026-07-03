@@ -35,4 +35,16 @@ export class InvitationController {
       sendSuccess(res, result, 'Invitation revoked');
     } catch (error) { next(error); }
   }
+
+  static async resendInvitation(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await InvitationService.resendInvitation(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
+      sendSuccess(res, result, 'Invitation resent successfully');
+    } catch (error) { next(error); }
+  }
 }

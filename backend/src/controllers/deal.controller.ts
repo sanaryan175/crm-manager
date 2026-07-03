@@ -16,7 +16,12 @@ export class DealController {
 
   static async getDealById(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const deal = await DealService.getDealById(req.params.id, req.user!.organizationId);
+      const deal = await DealService.getDealById(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
       sendSuccess(res, deal);
     } catch (error) { next(error); }
   }
@@ -44,7 +49,12 @@ export class DealController {
     try {
       const { stage, closeReason } = req.body;
       const deal = await DealService.updateDealStage(
-        req.params.id, req.user!.organizationId, stage, closeReason
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName,
+        stage,
+        closeReason
       );
       sendSuccess(res, deal, 'Deal stage updated');
     } catch (error) { next(error); }
@@ -52,7 +62,12 @@ export class DealController {
 
   static async deleteDeal(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await DealService.deleteDeal(req.params.id, req.user!.organizationId);
+      const result = await DealService.deleteDeal(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
       sendSuccess(res, result, 'Deal deleted successfully');
     } catch (error) { next(error); }
   }

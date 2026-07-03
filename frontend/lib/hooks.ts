@@ -312,6 +312,12 @@ export const useInvitations = () => {
     return response;
   };
 
+  const resendInvitation = async (id: string) => {
+    const response = await apiFetch(`/invitations/${id}/resend`, { method: 'POST' });
+    triggerRefresh('invitations');
+    return response;
+  };
+
   return {
     invitations: data || [],
     isLoading,
@@ -319,6 +325,7 @@ export const useInvitations = () => {
     refetch,
     sendInvitation,
     revokeInvitation,
+    resendInvitation,
   };
 };
 

@@ -46,7 +46,7 @@ export default function PipelineOverview() {
               tickFormatter={(v) => formatMoneyCompact(v)} />
             <Tooltip
               contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-              formatter={(value: number) => [formatMoney(value), 'Value']}
+              formatter={(value) => [formatMoney(Number(value ?? 0)), 'Value']}
             />
             <Bar dataKey="value" fill="url(#gradient)" radius={[8, 8, 0, 0]} animationDuration={800} />
             <defs>
@@ -71,4 +71,3 @@ export default function PipelineOverview() {
     </Card>
   );
 }
-

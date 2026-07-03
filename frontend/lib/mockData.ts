@@ -1,40 +1,54 @@
 import type { User, Contact, Deal, Activity } from './types';
 
+const mockRoles = {
+  admin: { id: 'role-admin', name: 'admin', displayName: 'Admin', isSystem: true },
+  salesManager: { id: 'role-sales-manager', name: 'sales_manager', displayName: 'Sales Manager', isSystem: true },
+  salesRep: { id: 'role-sales-rep', name: 'sales_rep', displayName: 'Sales Representative', isSystem: true },
+} as const;
+
 // Mock Users
 export const mockUsers: User[] = [
   {
     id: 'user-1',
+    organizationId: 'org-1',
     name: 'Sarah Chen',
     email: 'sarah@company.com',
-    role: 'admin',
+    role: mockRoles.admin,
     isActive: true,
+    isOwner: false,
     avatar: 'SC',
     createdAt: new Date('2024-01-15'),
   },
   {
     id: 'user-2',
+    organizationId: 'org-1',
     name: 'Marcus Johnson',
     email: 'marcus@company.com',
-    role: 'manager',
+    role: mockRoles.salesManager,
     isActive: true,
+    isOwner: false,
     avatar: 'MJ',
     createdAt: new Date('2024-01-20'),
   },
   {
     id: 'user-3',
+    organizationId: 'org-1',
     name: 'Emily Rodriguez',
     email: 'emily@company.com',
-    role: 'rep',
+    role: mockRoles.salesRep,
     isActive: true,
+    isOwner: false,
     avatar: 'ER',
     createdAt: new Date('2024-02-01'),
   },
   {
     id: 'user-4',
+    organizationId: 'org-1',
     name: 'David Kim',
     email: 'david@company.com',
-    role: 'rep',
+    role: mockRoles.salesRep,
     isActive: true,
+    isOwner: false,
     avatar: 'DK',
     createdAt: new Date('2024-02-05'),
   },
@@ -141,6 +155,7 @@ export const mockDeals: Deal[] = [
     contactId: 'contact-1',
     company: 'TechCorp Inc',
     value: 250000,
+    currency: 'USD',
     stage: 'proposal_sent',
     priority: 'high',
     expectedCloseDate: new Date('2024-07-15'),
@@ -156,6 +171,7 @@ export const mockDeals: Deal[] = [
     contactId: 'contact-1',
     company: 'TechCorp Inc',
     value: 35000,
+    currency: 'USD',
     stage: 'negotiation',
     priority: 'medium',
     expectedCloseDate: new Date('2024-07-01'),
@@ -171,6 +187,7 @@ export const mockDeals: Deal[] = [
     contactId: 'contact-2',
     company: 'Innovate Labs',
     value: 25000,
+    currency: 'USD',
     stage: 'demo_scheduled',
     priority: 'high',
     expectedCloseDate: new Date('2024-08-01'),
@@ -186,6 +203,7 @@ export const mockDeals: Deal[] = [
     contactId: 'contact-3',
     company: 'Global Retail Co',
     value: 180000,
+    currency: 'USD',
     stage: 'contacted',
     priority: 'high',
     expectedCloseDate: new Date('2024-09-30'),
@@ -201,6 +219,7 @@ export const mockDeals: Deal[] = [
     contactId: 'contact-4',
     company: 'FinancePlus',
     value: 45000,
+    currency: 'USD',
     stage: 'new',
     priority: 'medium',
     expectedCloseDate: new Date('2024-10-15'),
@@ -216,6 +235,7 @@ export const mockDeals: Deal[] = [
     contactId: undefined,
     company: 'XYZ Marketing',
     value: 95000,
+    currency: 'USD',
     stage: 'closed_won',
     priority: 'high',
     expectedCloseDate: new Date('2024-06-15'),
@@ -351,6 +371,7 @@ export const getDealWithActivities = (dealId: string) => {
 
 // Dashboard metrics
 export const getDashboardMetrics = () => {
+  const asDate = (value: Date | string) => value instanceof Date ? value : new Date(value);
   const totalContacts = mockContacts.length;
   const totalDeals = mockDeals.length;
   const pipelineValue = mockDeals
@@ -361,7 +382,7 @@ export const getDashboardMetrics = () => {
       (d) =>
         d.stage === 'closed_won' &&
         d.closedAt &&
-        d.closedAt.getMonth() === new Date().getMonth()
+        asDate(d.closedAt).getMonth() === new Date().getMonth()
     )
     .reduce((sum, d) => sum + d.value, 0);
   const overdueTasks = mockActivities.filter(
@@ -378,7 +399,7 @@ export const getDashboardMetrics = () => {
     overdueTasks,
     thisWeekActivities: mockActivities.filter(
       (a) =>
-        a.createdAt.getTime() >
+        asDate(a.createdAt).getTime() >
         new Date(new Date().setDate(new Date().getDate() - 7)).getTime()
     ).length,
   };

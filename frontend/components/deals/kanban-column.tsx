@@ -6,14 +6,16 @@ import { useRegion } from '@/lib/context';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 
 interface KanbanColumnProps {
   stage: DealStage;
   stageConfig: { label: string; color: string };
   deals: Deal[];
+  onCloseDeal?: (dealId: string) => void;
 }
 
-export default function KanbanColumn({ stageConfig, deals }: KanbanColumnProps) {
+export default function KanbanColumn({ stageConfig, deals, onCloseDeal }: KanbanColumnProps) {
   const { formatMoney, formatMoneyCompact, formatRegionDate } = useRegion();
   const totalValue = deals.reduce((sum, deal) => sum + deal.value, 0);
 
@@ -25,7 +27,7 @@ export default function KanbanColumn({ stageConfig, deals }: KanbanColumnProps) 
           <div>
             <h3 className="font-semibold text-foreground">{stageConfig.label}</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {deals.length} deals • {formatMoneyCompact(totalValue)}
+              {deals.length} deal{deals.length !== 1 ? 's' : ''} • {formatMoneyCompact(totalValue)}
             </p>
           </div>
           <Badge variant="default" size="sm">{deals.length}</Badge>
@@ -40,31 +42,29 @@ export default function KanbanColumn({ stageConfig, deals }: KanbanColumnProps) 
           </Card>
         ) : (
           deals.map((deal, index) => (
-            <motion.div
-              key={deal.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="cursor-grab active:cursor-grabbing"
-            >
+            <motion.div key={deal.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
               <Card className="p-4 hover:shadow-lg hover:border-accent/50 transition-all duration-200">
                 <div className="space-y-2">
-                  <h4 className="font-medium text-foreground text-sm line-clamp-2">{deal.title}</h4>
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-medium text-foreground text-sm line-clamp-2 flex-1">{deal.title}</h4>
+                    {onCloseDeal && (
+                      <button
+                        onClick={() => onCloseDeal(deal.id)}
+                        title="Close deal"
+                        className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
                   {deal.company && <p className="text-xs text-muted-foreground">{deal.company}</p>}
 
                   <div className="flex items-center justify-between pt-2 border-t border-border">
                     <div>
-                      <p className="font-semibold text-sm text-primary">
-                        {formatMoney(deal.value, deal.currency)}
-                      </p>
-                      {deal.currency && (
-                        <p className="text-xs text-muted-foreground">{deal.currency}</p>
-                      )}
+                      <p className="font-semibold text-sm text-primary">{formatMoney(deal.value, deal.currency)}</p>
                     </div>
-                    <Badge
-                      variant={deal.priority === 'high' ? 'error' : deal.priority === 'medium' ? 'warning' : 'info'}
-                      size="sm"
-                    >
+                    <Badge variant={deal.priority === 'high' ? 'error' : deal.priority === 'medium' ? 'warning' : 'info'} size="sm">
                       {deal.priority}
                     </Badge>
                   </div>
@@ -72,6 +72,12 @@ export default function KanbanColumn({ stageConfig, deals }: KanbanColumnProps) 
                   {deal.expectedCloseDate && (
                     <p className="text-xs text-muted-foreground">
                       Close: {formatRegionDate(deal.expectedCloseDate, { month: 'short', day: 'numeric' })}
+                    </p>
+                  )}
+
+                  {deal.contact && (
+                    <p className="text-xs text-muted-foreground">
+                      {deal.contact.firstName} {deal.contact.lastName}
                     </p>
                   )}
                 </div>

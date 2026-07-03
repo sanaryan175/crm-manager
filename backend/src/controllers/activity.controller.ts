@@ -17,7 +17,12 @@ export class ActivityController {
 
   static async getActivityById(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const activity = await ActivityService.getActivityById(req.params.id, req.user!.organizationId);
+      const activity = await ActivityService.getActivityById(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
       sendSuccess(res, activity);
     } catch (error) { next(error); }
   }
@@ -44,7 +49,11 @@ export class ActivityController {
   static async completeActivity(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const activity = await ActivityService.completeActivity(
-        req.params.id, req.user!.organizationId, req.body.completed
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName,
+        req.body.completed
       );
       sendSuccess(res, activity, 'Activity completion updated');
     } catch (error) { next(error); }
@@ -52,7 +61,12 @@ export class ActivityController {
 
   static async deleteActivity(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await ActivityService.deleteActivity(req.params.id, req.user!.organizationId);
+      const result = await ActivityService.deleteActivity(
+        req.params.id,
+        req.user!.organizationId,
+        req.user!.userId,
+        req.user!.roleName
+      );
       sendSuccess(res, result, 'Activity deleted');
     } catch (error) { next(error); }
   }

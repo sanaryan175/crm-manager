@@ -5,6 +5,7 @@ import { generateToken } from '../utils/jwt';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors';
 import { INVITE_PERMISSIONS } from '../rbac/permissions';
 import { TokenPayload } from '../utils/jwt';
+import { EmailService } from './email.service';
 
 const INVITE_EXPIRY_HOURS = 72;
 
@@ -52,8 +53,9 @@ export class InvitationService {
     });
 
     // Generate secure random token (stored as bcrypt hash for security)
-    const rawToken  = crypto.randomBytes(32).toString('hex');
-    const tokenHash = await bcrypt.hash(rawToken, 10);
+    const rawToken    = crypto.randomBytes(32).toString('hex');
+    const tokenHash   = await bcrypt.hash(rawToken, 10);
+    const tokenPrefix = rawToken.slice(0, 8);
 
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + INVITE_EXPIRY_HOURS);
@@ -65,6 +67,7 @@ export class InvitationService {
         roleId:         data.roleId,
         invitedById:    inviter.userId,
         token:          tokenHash,
+        tokenPrefix,
         expiresAt,
       },
       include: {
@@ -86,8 +89,27 @@ export class InvitationService {
       },
     });
 
-    // In production: send email with rawToken embedded in link.
-    // For now we return the raw token so caller can send it.
+    // Fetch inviter's name for email
+    const inviterUser = await prisma.user.findFirst({
+      where: { id: inviter.userId },
+      select: { name: true },
+    });
+
+    // Send invitation email
+    try {
+      await EmailService.sendInvitationEmail({
+        to: data.email,
+        inviterName: inviterUser?.name || 'Someone',
+        organizationName: invitation.organization.name,
+        roleName: targetRole.displayName,
+        inviteToken: rawToken,
+        frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+      });
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      // Don't fail the invitation if email fails, just log it
+    }
+
     return { invitation, inviteToken: rawToken };
   }
 
@@ -99,9 +121,9 @@ export class InvitationService {
     name:     string;
     password: string;
   }) {
-    // Find all pending invitations (we need to check token hash)
+    // Find pending invitations matching the token prefix (O(1) narrowing before bcrypt)
     const pending = await prisma.invitation.findMany({
-      where:   { status: 'pending' },
+      where:   { status: 'pending', tokenPrefix: data.token.slice(0, 8) },
       include: { organization: true, role: true },
     });
 
@@ -131,17 +153,18 @@ export class InvitationService {
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
     const result = await prisma.$transaction(async (tx) => {
-      // Create user
+      // Create user with onboardingComplete = false (invited users need to complete setup)
       const user = await tx.user.create({
         data: {
-          organizationId: matched!.organizationId,
-          roleId:         matched!.roleId,
-          name:           data.name,
-          email:          matched!.email,
-          password:       hashedPassword,
-          avatar:         data.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2),
+          organizationId:     matched!.organizationId,
+          roleId:             matched!.roleId,
+          name:               data.name,
+          email:              matched!.email,
+          password:           hashedPassword,
+          avatar:             data.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2),
+          onboarding_complete: false,
         },
-      });
+      } as any);
 
       // Mark invitation accepted
       await tx.invitation.update({
@@ -157,6 +180,7 @@ export class InvitationService {
           action:         'invite_accepted',
           resource:       'invitation',
           resourceId:     matched!.id,
+          metadata:       { invitedEmail: matched!.email, role: matched!.role.name },
         },
       });
 
@@ -190,6 +214,60 @@ export class InvitationService {
   }
 
   /**
+   * Resend an invitation — expires old one and creates fresh token.
+   */
+  static async resendInvitation(
+    invitationId:   string,
+    organizationId: string,
+    inviterId:      string,
+    inviterRoleName: string
+  ) {
+    const inv = await prisma.invitation.findFirst({
+      where:   { id: invitationId, organizationId },
+      include: { role: true },
+    });
+    if (!inv) throw new NotFoundError('Invitation not found');
+
+    // Validate hierarchy again on resend
+    const allowedToInvite = INVITE_PERMISSIONS[inviterRoleName] ?? [];
+    if (!allowedToInvite.includes(inv.role.name)) {
+      throw new ForbiddenError('You cannot resend this invitation');
+    }
+
+    // Expire old
+    await prisma.invitation.update({
+      where: { id: invitationId },
+      data:  { status: 'expired' },
+    });
+
+    // Create fresh invitation
+    const rawToken    = crypto.randomBytes(32).toString('hex');
+    const tokenHash   = await bcrypt.hash(rawToken, 10);
+    const tokenPrefix = rawToken.slice(0, 8);
+    const expiresAt   = new Date();
+    expiresAt.setHours(expiresAt.getHours() + INVITE_EXPIRY_HOURS);
+
+    const newInvitation = await prisma.invitation.create({
+      data: {
+        organizationId,
+        email:        inv.email,
+        roleId:       inv.roleId,
+        invitedById:  inviterId,
+        token:        tokenHash,
+        tokenPrefix,
+        expiresAt,
+      },
+      include: {
+        role:         { select: { name: true, displayName: true } },
+        invitedBy:    { select: { name: true, email: true } },
+        organization: { select: { name: true } },
+      },
+    });
+
+    return { invitation: newInvitation, inviteToken: rawToken };
+  }
+
+  /**
    * Revoke a pending invitation.
    */
   static async revokeInvitation(
@@ -211,7 +289,7 @@ export class InvitationService {
       data: {
         organizationId,
         userId,
-        action:     'invite_sent',
+        action:     'invite_revoked',
         resource:   'invitation',
         resourceId: invitationId,
         metadata:   { action: 'revoked' },

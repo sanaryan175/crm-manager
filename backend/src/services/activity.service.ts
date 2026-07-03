@@ -9,6 +9,34 @@ const ACTIVITY_INCLUDE = {
 };
 
 export class ActivityService {
+  private static canAccess(activity: { createdById: string; assignedToId: string | null }, actorId: string, actorRoleName: string) {
+    return actorRoleName !== 'sales_rep' || activity.createdById === actorId || activity.assignedToId === actorId;
+  }
+
+  private static async ensureAssignableUser(organizationId: string, assignedToId?: string | null) {
+    if (!assignedToId) return;
+    const user = await prisma.user.findFirst({
+      where: { id: assignedToId, organizationId, isActive: true },
+    });
+    if (!user) throw new NotFoundError('Assigned user not found');
+  }
+
+  private static async ensureContact(organizationId: string, contactId?: string | null) {
+    if (!contactId) return;
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, organizationId },
+    });
+    if (!contact) throw new NotFoundError('Contact not found');
+  }
+
+  private static async ensureDeal(organizationId: string, dealId?: string | null) {
+    if (!dealId) return;
+    const deal = await prisma.deal.findFirst({
+      where: { id: dealId, organizationId },
+    });
+    if (!deal) throw new NotFoundError('Deal not found');
+  }
+
   static async getActivities(
     organizationId: string,
     actorId: string,
@@ -31,12 +59,20 @@ export class ActivityService {
     });
   }
 
-  static async getActivityById(id: string, organizationId: string) {
+  static async getActivityById(
+    id: string,
+    organizationId: string,
+    actorId?: string,
+    actorRoleName?: string
+  ) {
     const activity = await prisma.activity.findFirst({
       where: { id, organizationId },
       include: ACTIVITY_INCLUDE,
     });
     if (!activity) throw new NotFoundError('Activity not found');
+    if (actorId && actorRoleName && !this.canAccess(activity, actorId, actorRoleName)) {
+      throw new NotFoundError('Activity not found');
+    }
     return activity;
   }
 
@@ -49,6 +85,10 @@ export class ActivityService {
       assignedToId?: string | null; dueDate?: Date | null; completed?: boolean;
     }
   ) {
+    await this.ensureAssignableUser(organizationId, data.assignedToId);
+    await this.ensureContact(organizationId, data.contactId);
+    await this.ensureDeal(organizationId, data.dealId);
+
     const completed   = data.completed || false;
     const completedAt = completed ? new Date() : null;
     return prisma.activity.create({
@@ -65,13 +105,10 @@ export class ActivityService {
       assignedToId?: string | null; dueDate?: Date | null; completed?: boolean;
     }
   ) {
-    const existing = await this.getActivityById(id, organizationId);
-
-    if (actorRoleName === 'sales_rep' &&
-        existing.createdById !== actorId &&
-        existing.assignedToId !== actorId) {
-      throw new NotFoundError('Activity not found');
-    }
+    const existing = await this.getActivityById(id, organizationId, actorId, actorRoleName);
+    await this.ensureAssignableUser(organizationId, data.assignedToId);
+    await this.ensureContact(organizationId, data.contactId);
+    await this.ensureDeal(organizationId, data.dealId);
 
     const updatedData: typeof data & { completedAt?: Date | null } = { ...data };
     if (data.completed !== undefined && data.completed !== existing.completed) {
@@ -81,8 +118,14 @@ export class ActivityService {
     return prisma.activity.update({ where: { id }, data: updatedData, include: ACTIVITY_INCLUDE });
   }
 
-  static async completeActivity(id: string, organizationId: string, completed: boolean) {
-    await this.getActivityById(id, organizationId);
+  static async completeActivity(
+    id: string,
+    organizationId: string,
+    actorId: string,
+    actorRoleName: string,
+    completed: boolean
+  ) {
+    await this.getActivityById(id, organizationId, actorId, actorRoleName);
     return prisma.activity.update({
       where: { id },
       data:  { completed, completedAt: completed ? new Date() : null },
@@ -90,8 +133,8 @@ export class ActivityService {
     });
   }
 
-  static async deleteActivity(id: string, organizationId: string) {
-    await this.getActivityById(id, organizationId);
+  static async deleteActivity(id: string, organizationId: string, actorId: string, actorRoleName: string) {
+    await this.getActivityById(id, organizationId, actorId, actorRoleName);
     await prisma.activity.delete({ where: { id } });
     return { success: true };
   }
