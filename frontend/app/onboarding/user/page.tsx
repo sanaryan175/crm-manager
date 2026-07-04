@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Mail, Building2, CheckCircle, ArrowRight } from 'lucide-react';
+import { User, Mail, Building2, CheckCircle, ArrowRight, Bell, Clock, Globe } from 'lucide-react';
 import { useAuth, useUI } from '@/lib/context';
 import { apiFetch } from '@/lib/api';
 import Card from '@/components/ui/card';
@@ -14,6 +14,13 @@ export default function UserOnboardingPage() {
   const { addToast } = useUI();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preferences, setPreferences] = useState({
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    language: 'en',
+    currency: 'USD',
+    emailNotifications: true,
+    taskReminders: true,
+  });
 
   // Guard: only authenticated non-owners with incomplete onboarding can be here
   useEffect(() => {
@@ -32,6 +39,7 @@ export default function UserOnboardingPage() {
     try {
       await apiFetch('/auth/complete-onboarding', {
         method: 'POST',
+        body: JSON.stringify(preferences),
       });
       addToast({ type: 'success', message: 'Welcome to the team! You\'re all set.' });
       await refreshUser();
@@ -122,6 +130,96 @@ export default function UserOnboardingPage() {
               <span>Update your profile and avatar from Settings</span>
             </li>
           </ul>
+        </Card>
+
+        {/* Preferences */}
+        <Card className="p-6 shadow-xl border border-border/40 bg-card/80 backdrop-blur-sm mb-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Your Preferences</h2>
+          <div className="space-y-4">
+            {/* Language */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Globe className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Language</p>
+                <select
+                  value={preferences.language}
+                  onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
+                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none"
+                >
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                  <option value="zh">中文</option>
+                  <option value="ja">日本語</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Currency */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Building2 className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Currency</p>
+                <select
+                  value={preferences.currency}
+                  onChange={(e) => setPreferences({ ...preferences, currency: e.target.value })}
+                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="INR">INR (₹)</option>
+                  <option value="JPY">JPY (¥)</option>
+                  <option value="CAD">CAD ($)</option>
+                  <option value="AUD">AUD ($)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Timezone */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Timezone</p>
+                <p className="text-sm font-medium text-foreground">{preferences.timezone}</p>
+              </div>
+            </div>
+
+            {/* Email Notifications */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Bell className="w-5 h-5 text-primary flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Email Notifications</p>
+                  <p className="text-xs text-muted-foreground">Receive updates via email</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreferences({ ...preferences, emailNotifications: !preferences.emailNotifications })}
+                className={`w-12 h-6 rounded-full transition-colors ${preferences.emailNotifications ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${preferences.emailNotifications ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            {/* Task Reminders */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Task Reminders</p>
+                  <p className="text-xs text-muted-foreground">Get notified about upcoming tasks</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreferences({ ...preferences, taskReminders: !preferences.taskReminders })}
+                className={`w-12 h-6 rounded-full transition-colors ${preferences.taskReminders ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${preferences.taskReminders ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
         </Card>
 
         {/* Complete button */}

@@ -60,7 +60,11 @@ export class AuthController {
   // POST /auth/complete-onboarding
   static async completeOnboarding(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const user = await AuthService.completeOnboarding(req.user!.userId, req.user!.organizationId);
+      const user = await AuthService.completeOnboarding(
+        req.user!.userId, 
+        req.user!.organizationId,
+        req.body
+      );
       sendSuccess(res, user, 'Onboarding complete');
     } catch (error) { next(error); }
   }

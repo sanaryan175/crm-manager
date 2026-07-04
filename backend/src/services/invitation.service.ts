@@ -97,6 +97,7 @@ export class InvitationService {
 
     // Send invitation email
     try {
+      console.log('Sending invitation email to:', data.email);
       await EmailService.sendInvitationEmail({
         to: data.email,
         inviterName: inviterUser?.name || 'Someone',
@@ -105,9 +106,12 @@ export class InvitationService {
         inviteToken: rawToken,
         frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
       });
+      console.log('Invitation email sent successfully');
     } catch (emailError) {
       console.error('Failed to send invitation email:', emailError);
+      console.error('Email error details:', JSON.stringify(emailError, null, 2));
       // Don't fail the invitation if email fails, just log it
+      // But make it clear in the response that email failed
     }
 
     return { invitation, inviteToken: rawToken };
@@ -121,18 +125,28 @@ export class InvitationService {
     name:     string;
     password: string;
   }) {
+    console.log('=== INVITATION ACCEPT DEBUG ===');
+    console.log('Received token length:', data.token.length);
+    console.log('Received token prefix:', data.token.slice(0, 8));
+    
     // Find pending invitations matching the token prefix (O(1) narrowing before bcrypt)
     const pending = await prisma.invitation.findMany({
       where:   { status: 'pending', tokenPrefix: data.token.slice(0, 8) },
       include: { organization: true, role: true },
     });
 
+    console.log('Found pending invitations with matching prefix:', pending.length);
+    
     // Find matching token via bcrypt compare
     let matched: (typeof pending)[0] | undefined;
     for (const inv of pending) {
       const isMatch = await bcrypt.compare(data.token, inv.token);
+      console.log(`Checking invitation ${inv.id}: match=${isMatch}, email=${inv.email}`);
       if (isMatch) { matched = inv; break; }
     }
+
+    console.log('Matched invitation:', matched ? matched.id : 'none');
+    console.log('============================');
 
     if (!matched) throw new BadRequestError('Invalid or expired invitation token');
 
@@ -162,9 +176,9 @@ export class InvitationService {
           email:              matched!.email,
           password:           hashedPassword,
           avatar:             data.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2),
-          onboarding_complete: false,
+          onboardingComplete: false,
         },
-      } as any);
+      });
 
       // Mark invitation accepted
       await tx.invitation.update({

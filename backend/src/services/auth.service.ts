@@ -47,15 +47,28 @@ export class AuthService {
     return { user: userSafe, token };
   }
 
-  static async completeOnboarding(userId: string, organizationId: string) {
+  static async completeOnboarding(userId: string, organizationId: string, preferences?: {
+    timezone?: string;
+    language?: string;
+    currency?: string;
+    emailNotifications?: boolean;
+    taskReminders?: boolean;
+  }) {
     const user = await prisma.user.findFirst({ where: { id: userId, organizationId } });
     if (!user) throw new NotFoundError('User not found');
 
     const updated = await prisma.user.update({
       where: { id: userId },
-      data:  { onboarding_complete: true },
+      data:  { 
+        onboardingComplete: true,
+        ...(preferences?.timezone && { timezone: preferences.timezone }),
+        ...(preferences?.language && { language: preferences.language }),
+        ...(preferences?.currency && { currency: preferences.currency }),
+        ...(preferences?.emailNotifications !== undefined && { emailNotifications: preferences.emailNotifications }),
+        ...(preferences?.taskReminders !== undefined && { taskReminders: preferences.taskReminders }),
+      },
       include: { role: { select: { id: true, name: true, displayName: true } } },
-    } as any);
+    });
 
     const { password: _pw, ...safe } = updated;
     return safe;

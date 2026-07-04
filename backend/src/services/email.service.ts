@@ -1,6 +1,11 @@
-import { Resend } from 'resend';
+import { BrevoClient } from '@getbrevo/brevo';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const apiKey = process.env.BREVO_API_KEY;
+if (!apiKey) {
+  throw new Error('BREVO_API_KEY is not defined');
+}
+
+const client = new BrevoClient({ apiKey });
 
 export class EmailService {
   static async sendInvitationEmail(data: {
@@ -11,14 +16,20 @@ export class EmailService {
     inviteToken: string;
     frontendUrl: string;
   }) {
-    const inviteLink = `${data.frontendUrl}/accept-invitation?token=${data.inviteToken}`;
+    const inviteLink = `${data.frontendUrl}/invitations/accept?token=${data.inviteToken}`;
 
     try {
-      await resend.emails.send({
-        from: process.env.RESEND_FROM || 'onboarding@yourdomain.com',
-        to: data.to,
+      console.log('Attempting to send email to:', data.to);
+      console.log('Using sender email:', process.env.BREVO_SENDER_EMAIL || 'onboarding@yourdomain.com');
+      
+      const result = await client.transactionalEmails.sendTransacEmail({
+        sender: { 
+          email: process.env.BREVO_SENDER_EMAIL || 'onboarding@yourdomain.com', 
+          name: process.env.BREVO_SENDER_NAME || 'CRM Manager' 
+        },
+        to: [{ email: data.to }],
         subject: `You're invited to join ${data.organizationName}`,
-        html: `
+        htmlContent: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">You're Invited!</h2>
             <p>Hi there,</p>
@@ -33,9 +44,10 @@ export class EmailService {
           </div>
         `,
       });
-      console.log(`Invitation email sent to ${data.to}`);
+      console.log(`Invitation email sent successfully to ${data.to}`, result);
     } catch (error) {
-      console.error('Failed to send invitation email:', error);
+      console.error('Failed to send invitation email. Error details:', error);
+      console.error('Error response:', JSON.stringify(error, null, 2));
       throw new Error('Failed to send invitation email');
     }
   }

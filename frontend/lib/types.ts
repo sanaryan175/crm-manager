@@ -44,6 +44,11 @@ export interface User {
   isActive: boolean;
   isOwner: boolean;
   onboardingComplete: boolean;
+  timezone: string;
+  language: string;
+  currency: string;
+  emailNotifications: boolean;
+  taskReminders: boolean;
   avatar?: string;
   lastLoginAt?: Date | string;
   createdAt: Date | string;

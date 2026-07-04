@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Lock, User, Eye, EyeOff, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
-import { useUI } from '@/lib/context';
+import { useUI, useAuth } from '@/lib/context';
 import { apiFetch } from '@/lib/api';
 import Card from '@/components/ui/card';
 
@@ -12,6 +12,7 @@ export default function AcceptInvitePage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const { addToast } = useUI();
+  const { refreshUser } = useAuth();
 
   const token = searchParams.get('token') ?? '';
 
@@ -49,9 +50,12 @@ export default function AcceptInvitePage() {
         localStorage.setItem('auth_token', data.token);
       }
 
+      // Refresh user data so AuthContext has the user info
+      await refreshUser();
+
       addToast({ type: 'success', message: `Welcome to ${data?.organization?.name ?? 'the team'}! Setting up your workspace...`, duration: 4000 });
       // Small delay so the toast is visible before navigation
-      setTimeout(() => router.replace('/dashboard'), 1000);
+      setTimeout(() => router.replace('/onboarding/user'), 1000);
     } catch (err: any) {
       const raw: string = err.message || 'Failed to accept invitation.';
       const lower = raw.toLowerCase();

@@ -173,6 +173,11 @@ model User {
   avatar             String?
   isOwner            Boolean  @default(false) @map("is_owner")
   onboardingComplete Boolean  @default(true) @map("onboarding_complete")
+  timezone           String   @default("UTC")
+  language           String   @default("en")
+  currency           String   @default("USD")
+  emailNotifications Boolean  @default(true) @map("email_notifications")
+  taskReminders      Boolean  @default(true) @map("task_reminders")
   lastLoginAt        DateTime? @map("last_login_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
