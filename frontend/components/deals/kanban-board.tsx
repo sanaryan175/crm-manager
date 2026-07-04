@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useDeals } from '@/lib/hooks';
 import { DEAL_STAGES, type DealStage } from '@/lib/types';
+import { formatCurrency } from '@/lib/regions';
 import KanbanColumn from './kanban-column';
 import Card from '@/components/ui/card';
 
@@ -37,7 +38,7 @@ export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
 
   return (
     <div className="overflow-x-auto pb-6">
-      <div className="flex gap-6 min-w-max">
+      <div className="flex gap-4 sm:gap-6 min-w-max">
         {/* Active pipeline stages */}
         {boardStages.map((stage) => (
           <motion.div
@@ -45,7 +46,7 @@ export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="flex-shrink-0 w-72"
+            className="flex-shrink-0 w-64 sm:w-72"
           >
             <KanbanColumn
               stage={stage}
@@ -61,7 +62,7 @@ export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="flex-shrink-0 w-72 space-y-3"
+          className="flex-shrink-0 w-64 sm:w-72 space-y-3"
         >
           <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
             <h3 className="font-semibold text-green-600">Closed Won 🏆</h3>
@@ -72,7 +73,7 @@ export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
           {(dealsByStage.closed_won || []).map((deal) => (
             <Card key={deal.id} className="text-sm p-3 border-l-4 border-l-green-500">
               <p className="font-medium text-foreground">{deal.title}</p>
-              <p className="text-xs text-muted-foreground mt-1">{deal.currency} {deal.value.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(deal.value, deal.currency)}</p>
             </Card>
           ))}
 

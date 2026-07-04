@@ -75,7 +75,7 @@ function DealModal({
           <input className={inp} value={form.title} onChange={e => set('title', e.target.value)} placeholder="Enterprise License Deal" required />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Value *</label>
             <input type="number" min="0" className={inp} value={form.value} onChange={e => set('value', e.target.value)} placeholder="50000" required />
@@ -88,7 +88,7 @@ function DealModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stage</label>
             <select className={inp} value={form.stage} onChange={e => set('stage', e.target.value as DealStage)}>
@@ -103,7 +103,7 @@ function DealModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact</label>
             <select className={inp} value={form.contactId} onChange={e => set('contactId', e.target.value)}>
@@ -222,16 +222,16 @@ export default function DealsPage() {
   };
 
   return (
-    <motion.div className="p-6 space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <motion.div className="p-4 sm:p-6 space-y-4 sm:space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Pipeline</h1>
-          <p className="text-muted-foreground mt-1">Manage your sales deals and track progress</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Pipeline</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Manage your sales deals and track progress</p>
         </div>
         <button
           onClick={() => setNewOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           New Deal

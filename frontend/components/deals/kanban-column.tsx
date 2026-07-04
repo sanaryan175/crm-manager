@@ -16,8 +16,28 @@ interface KanbanColumnProps {
 }
 
 export default function KanbanColumn({ stageConfig, deals, onCloseDeal }: KanbanColumnProps) {
-  const { formatMoney, formatMoneyCompact, formatRegionDate } = useRegion();
-  const totalValue = deals.reduce((sum, deal) => sum + deal.value, 0);
+  const { formatMoneyCompact, formatMoney, formatRegionDate } = useRegion();
+  
+  // Group deals by currency for the total display
+  const currencyGroups = deals.reduce((acc, deal) => {
+    acc[deal.currency] = (acc[deal.currency] || 0) + deal.value;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const currencies = Object.keys(currencyGroups);
+  const hasMultipleCurrencies = currencies.length > 1;
+
+  // Format the total value display
+  const formatTotalValue = () => {
+    if (deals.length === 0) return 'No deals';
+    if (hasMultipleCurrencies) {
+      // Show breakdown for multiple currencies
+      return currencies.map(c => `${formatMoneyCompact(currencyGroups[c], c)}`).join(' + ');
+    }
+    // Single currency - just show the total
+    const totalValue = currencyGroups[currencies[0]] || 0;
+    return formatMoneyCompact(totalValue, currencies[0]);
+  };
 
   return (
     <div className="space-y-4">
@@ -27,7 +47,7 @@ export default function KanbanColumn({ stageConfig, deals, onCloseDeal }: Kanban
           <div>
             <h3 className="font-semibold text-foreground">{stageConfig.label}</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {deals.length} deal{deals.length !== 1 ? 's' : ''} • {formatMoneyCompact(totalValue)}
+              {deals.length} deal{deals.length !== 1 ? 's' : ''} • {formatTotalValue()}
             </p>
           </div>
           <Badge variant="default" size="sm">{deals.length}</Badge>

@@ -14,17 +14,37 @@ export default function PipelineOverview() {
   const chartData = useMemo(() => {
     const grouped: Record<string, number> = {};
     const counts: Record<string, number> = {};
+    const currencyBreakdown: Record<string, Record<string, number>> = {};
+
     deals.forEach((deal) => {
-      grouped[deal.stage] = (grouped[deal.stage] || 0) + deal.value;
+      // Group by stage for counts
       counts[deal.stage] = (counts[deal.stage] || 0) + 1;
+      
+      // Group by stage AND currency for values
+      if (!currencyBreakdown[deal.stage]) {
+        currencyBreakdown[deal.stage] = {};
+      }
+      currencyBreakdown[deal.stage][deal.currency] = (currencyBreakdown[deal.stage][deal.currency] || 0) + deal.value;
+      
+      // For the chart, we'll use the dominant currency or first currency
+      grouped[deal.stage] = (grouped[deal.stage] || 0) + deal.value;
     });
+
     return Object.entries(DEAL_STAGES)
       .filter(([stage]) => stage !== 'closed_lost')
-      .map(([stage, config]) => ({
-        name: config.label,
-        value: grouped[stage] || 0,
-        count: counts[stage] || 0,
-      }));
+      .map(([stage, config]) => {
+        const stageCurrencies = currencyBreakdown[stage] || {};
+        const currencyKeys = Object.keys(stageCurrencies);
+        const dominantCurrency = currencyKeys.length > 0 ? currencyKeys[0] : 'USD';
+        
+        return {
+          name: config.label,
+          value: grouped[stage] || 0,
+          count: counts[stage] || 0,
+          currency: dominantCurrency,
+          currencyBreakdown: stageCurrencies,
+        };
+      });
   }, [deals]);
 
   if (error) {
@@ -46,7 +66,16 @@ export default function PipelineOverview() {
               tickFormatter={(v) => formatMoneyCompact(v)} />
             <Tooltip
               contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-              formatter={(value) => [formatMoney(Number(value ?? 0)), 'Value']}
+              formatter={(value, name, props) => {
+                const item = chartData[props.payload?.dataKey || 0];
+                if (item && item.currencyBreakdown && Object.keys(item.currencyBreakdown).length > 1) {
+                  const breakdown = Object.entries(item.currencyBreakdown)
+                    .map(([curr, val]) => `${formatMoneyCompact(Number(val), curr)}`)
+                    .join(' + ');
+                  return [breakdown, name];
+                }
+                return [formatMoney(Number(value ?? 0), item?.currency || 'USD'), name];
+              }}
             />
             <Bar dataKey="value" fill="url(#gradient)" radius={[8, 8, 0, 0]} animationDuration={800} />
             <defs>
@@ -58,12 +87,17 @@ export default function PipelineOverview() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-border">
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pt-4 border-t border-border">
         {chartData.map((item) => (
           <div key={item.name}>
             <p className="text-xs text-muted-foreground">{item.name}</p>
             <p className="text-sm font-semibold text-foreground">
-              {formatMoneyCompact(item.value)} ({item.count} deals)
+              {Object.keys(item.currencyBreakdown).length > 1
+                ? Object.entries(item.currencyBreakdown)
+                    .map(([curr, val]) => formatMoneyCompact(Number(val), curr))
+                    .join(' + ')
+                : formatMoneyCompact(item.value, item.currency)
+              } ({item.count} deals)
             </p>
           </div>
         ))}

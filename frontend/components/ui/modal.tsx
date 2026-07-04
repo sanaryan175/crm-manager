@@ -56,9 +56,9 @@ export default function Modal({
           >
             <div className="bg-card border border-border rounded-lg shadow-xl overflow-hidden">
               {/* Header */}
-              <div className="flex items-start justify-between p-6 border-b border-border">
+              <div className="flex items-start justify-between p-4 sm:p-6 border-b border-border">
                 <div>
-                  <h2 className="text-lg font-semibold">{title}</h2>
+                  <h2 className="text-base sm:text-lg font-semibold">{title}</h2>
                   {description && (
                     <p className="text-sm text-muted-foreground mt-1">{description}</p>
                   )}
@@ -72,7 +72,7 @@ export default function Modal({
               </div>
 
               {/* Content */}
-              <div className="p-6">{children}</div>
+              <div className="p-4 sm:p-6">{children}</div>
             </div>
           </motion.div>
         </>

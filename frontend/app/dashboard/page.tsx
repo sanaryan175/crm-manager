@@ -145,23 +145,23 @@ export default function DashboardPage() {
       <InviteMemberModal isOpen={inviteOpen} onClose={() => setInviteOpen(false)} />
 
       <motion.div
-        className="p-6 space-y-6"
+        className="p-4 sm:p-6 space-y-4 sm:space-y-6"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
       >
         {/* Header */}
-        <motion.div variants={itemVariants} className="flex items-start justify-between gap-4">
+        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               Welcome back{user ? `, ${user.name.split(' ')[0]}` : ''}! Here&apos;s your sales overview.
             </p>
           </div>
           {hasPermission('user.invite') && (
             <button
               onClick={() => setInviteOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors w-full sm:w-auto"
             >
               <UserPlus className="w-4 h-4" />
               Invite Member
