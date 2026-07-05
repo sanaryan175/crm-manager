@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { NotFoundError } from '../utils/errors';
 import { DealStage, DealPriority, DealCloseReason } from '@prisma/client';
+import { convertCurrency } from './currency.service';
 
 const DEAL_INCLUDE = {
   contact:    { select: { id: true, firstName: true, lastName: true, company: true, email: true } },
@@ -75,6 +76,20 @@ export class DealService {
   ) {
     await this.ensureAssignableUser(organizationId, data.assignedToId);
 
+    // Get organization's base currency
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { currency: true },
+    });
+    if (!organization) throw new NotFoundError('Organization not found');
+
+    const baseCurrency = organization.currency;
+    const inputCurrency = data.currency || 'USD';
+    const inputValue = data.value;
+
+    // Convert from user's input currency to organization's base currency for storage
+    const baseValue = await convertCurrency(inputValue, inputCurrency, baseCurrency);
+
     let finalCompany = data.company;
     if (data.contactId && !finalCompany) {
       const contact = await this.ensureContact(organizationId, data.contactId);
@@ -89,7 +104,16 @@ export class DealService {
     if (data.stage === DealStage.closed_lost) { closedAt = new Date(); closeReason = DealCloseReason.lost; }
 
     return prisma.deal.create({
-      data: { ...data, company: finalCompany, closedAt, closeReason, organizationId, createdById },
+      data: {
+        ...data,
+        company: finalCompany,
+        closedAt,
+        closeReason,
+        organizationId,
+        createdById,
+        value: baseValue,
+        baseCurrency,
+      },
       include: DEAL_INCLUDE,
     });
   }

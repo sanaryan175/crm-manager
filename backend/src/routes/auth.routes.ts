@@ -8,6 +8,7 @@ import {
   loginSchema,
   updateProfileSchema,
   changePasswordSchema,
+  completeOnboardingSchema,
 } from '../validations/auth.validation';
 
 const router = Router();
@@ -18,6 +19,6 @@ router.post('/setup',              authenticate, requireOwner, validate(organiza
 router.get('/me',                  authenticate,                         AuthController.getMe);
 router.patch('/me',                authenticate, validate(updateProfileSchema),     AuthController.updateMe);
 router.post('/change-password',    authenticate, validate(changePasswordSchema),    AuthController.changePassword);
-router.post('/complete-onboarding', authenticate,                         AuthController.completeOnboarding);
+router.post('/complete-onboarding', authenticate, validate(completeOnboardingSchema), AuthController.completeOnboarding);
 
 export default router;

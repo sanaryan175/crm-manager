@@ -96,25 +96,20 @@ export class InvitationService {
     });
 
     // Send invitation email
-    try {
-      console.log('Sending invitation email to:', data.email);
-      await EmailService.sendInvitationEmail({
-        to: data.email,
-        inviterName: inviterUser?.name || 'Someone',
-        organizationName: invitation.organization.name,
-        roleName: targetRole.displayName,
-        inviteToken: rawToken,
-        frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      });
-      console.log('Invitation email sent successfully');
-    } catch (emailError) {
-      console.error('Failed to send invitation email:', emailError);
-      console.error('Email error details:', JSON.stringify(emailError, null, 2));
-      // Don't fail the invitation if email fails, just log it
-      // But make it clear in the response that email failed
+    const emailSent = await EmailService.sendInvitationEmail({
+      to: data.email,
+      inviterName: inviterUser?.name || 'Someone',
+      organizationName: invitation.organization.name,
+      roleName: targetRole.displayName,
+      inviteToken: rawToken,
+      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+    });
+
+    if (!emailSent) {
+      console.warn('Invitation created but email delivery failed — invite token available for manual sharing');
     }
 
-    return { invitation, inviteToken: rawToken };
+    return { invitation, inviteToken: rawToken, emailSent };
   }
 
   /**
@@ -278,7 +273,26 @@ export class InvitationService {
       },
     });
 
-    return { invitation: newInvitation, inviteToken: rawToken };
+    // Send invitation email
+    const inviterUser = await prisma.user.findFirst({
+      where: { id: inviterId },
+      select: { name: true },
+    });
+
+    const emailSent = await EmailService.sendInvitationEmail({
+      to: inv.email,
+      inviterName: inviterUser?.name || 'Someone',
+      organizationName: newInvitation.organization.name,
+      roleName: inv.role.displayName,
+      inviteToken: rawToken,
+      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+    });
+
+    if (!emailSent) {
+      console.warn('Resend: invitation created but email delivery failed — invite token available for manual sharing');
+    }
+
+    return { invitation: newInvitation, inviteToken: rawToken, emailSent };
   }
 
   /**

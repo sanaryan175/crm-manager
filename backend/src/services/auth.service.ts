@@ -51,21 +51,31 @@ export class AuthService {
     timezone?: string;
     language?: string;
     currency?: string;
+    phone?: string;
+    jobTitle?: string;
     emailNotifications?: boolean;
     taskReminders?: boolean;
+    meetingReminders?: boolean;
+    dateFormat?: string;
+    timeFormat?: string;
   }) {
     const user = await prisma.user.findFirst({ where: { id: userId, organizationId } });
     if (!user) throw new NotFoundError('User not found');
 
     const updated = await prisma.user.update({
       where: { id: userId },
-      data:  { 
+      data:  {
         onboardingComplete: true,
-        ...(preferences?.timezone && { timezone: preferences.timezone }),
-        ...(preferences?.language && { language: preferences.language }),
-        ...(preferences?.currency && { currency: preferences.currency }),
-        ...(preferences?.emailNotifications !== undefined && { emailNotifications: preferences.emailNotifications }),
-        ...(preferences?.taskReminders !== undefined && { taskReminders: preferences.taskReminders }),
+        ...(preferences?.timezone       && { timezone: preferences.timezone }),
+        ...(preferences?.language       && { language: preferences.language }),
+        ...(preferences?.currency       && { currency: preferences.currency }),
+        ...(preferences?.phone          && { phone: preferences.phone }),
+        ...(preferences?.jobTitle       && { jobTitle: preferences.jobTitle }),
+        ...(preferences?.dateFormat     && { dateFormat: preferences.dateFormat }),
+        ...(preferences?.timeFormat     && { timeFormat: preferences.timeFormat }),
+        ...(preferences?.emailNotifications  !== undefined && { emailNotifications:  preferences.emailNotifications }),
+        ...(preferences?.taskReminders       !== undefined && { taskReminders:       preferences.taskReminders }),
+        ...(preferences?.meetingReminders    !== undefined && { meetingReminders:    preferences.meetingReminders }),
       },
       include: { role: { select: { id: true, name: true, displayName: true } } },
     });
@@ -92,7 +102,7 @@ export class AuthService {
   static async updateProfile(
     userId:         string,
     organizationId: string,
-    data: { name?: string; avatar?: string }
+    data: { name?: string; avatar?: string; phone?: string; jobTitle?: string }
   ) {
     const user = await prisma.user.findFirst({
       where: { id: userId, organizationId },

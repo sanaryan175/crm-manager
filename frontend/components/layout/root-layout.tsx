@@ -8,20 +8,29 @@ import Toast from './toast';
 import { useUI, useAuth } from '@/lib/context';
 
 // Pages that don't need auth or sidebar
-const PUBLIC_ROUTES = ['/login', '/onboarding/setup', '/onboarding/user', '/invitations/accept'];
+const PUBLIC_ROUTES = ['/login', '/onboarding/setup', '/onboarding/user', '/onboarding/welcome', '/invitations/accept'];
 
 interface RootLayoutClientProps {
   children: ReactNode;
 }
 
 export default function RootLayoutClient({ children }: RootLayoutClientProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { toasts, addToast }          = useUI();
   const { user, isLoading }           = useAuth();
   const pathname                      = usePathname();
   const router                        = useRouter();
 
-  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  // Sidebar state persisted to localStorage
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  useEffect(() => {
+    const val = localStorage.getItem('sidebar_open');
+    if (val !== null) setSidebarOpen(val === 'true');
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('sidebar_open', String(sidebarOpen));
+  }, [sidebarOpen]);
+
+  const isPublicRoute = pathname === '/' || PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
 
   // Show "session expired" toast when apiFetch fires auth:unauthorized
   useEffect(() => {
@@ -44,7 +53,7 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
     // Logged in routing logic
     if (user) {
       const orgSetupComplete = user.organization?.setupComplete ?? false;
-      const userOnboardingComplete = user.onboardingComplete ?? true;
+      const userOnboardingComplete = user.onboardingComplete ?? false;
 
       // Owner without org setup → go to org setup wizard
       if (user.isOwner && !orgSetupComplete && pathname !== '/onboarding/setup') {
@@ -60,6 +69,13 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
 
       // Owner with org setup complete → redirect away from org setup page
       if (user.isOwner && orgSetupComplete && pathname === '/onboarding/setup') {
+        router.replace('/onboarding/welcome');
+        return;
+      }
+
+      // Owner with org setup complete → redirect away from welcome (if they manually navigate back)
+      // — allow /onboarding/welcome for owners only; non-owners shouldn't be here
+      if (!user.isOwner && pathname === '/onboarding/welcome') {
         router.replace('/dashboard');
         return;
       }
@@ -70,8 +86,8 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
         return;
       }
 
-      // All authenticated users with complete setup → redirect away from login
-      if ((user.isOwner ? orgSetupComplete : userOnboardingComplete) && pathname === '/login') {
+      // All authenticated users with complete setup → redirect away from landing / login
+      if ((user.isOwner ? orgSetupComplete : userOnboardingComplete) && (pathname === '/' || pathname === '/login')) {
         router.replace('/dashboard');
         return;
       }
@@ -92,7 +108,7 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
     return (
       <div className="min-h-screen bg-background">
         <main>{children}</main>
-        <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-md">
+        <div className="fixed bottom-4 right-4 z-[9999] space-y-2 max-w-md">
           {toasts.map((t) => <Toast key={t.id} toast={t} />)}
         </div>
       </div>

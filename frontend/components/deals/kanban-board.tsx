@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useDeals } from '@/lib/hooks';
 import { DEAL_STAGES, type DealStage } from '@/lib/types';
 import { formatCurrency } from '@/lib/regions';
+import { useAuth } from '@/lib/context';
+import { convertCurrency } from '@/lib/currency';
 import KanbanColumn from './kanban-column';
 import Card from '@/components/ui/card';
 
@@ -14,6 +16,8 @@ interface KanbanBoardProps {
 
 export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
   const { deals, isLoading, error } = useDeals();
+  const { user } = useAuth();
+  const userCurrency = user?.currency || 'USD';
 
   const dealsByStage = useMemo(() => {
     const grouped: Record<string, typeof deals> = {};
@@ -73,7 +77,9 @@ export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
           {(dealsByStage.closed_won || []).map((deal) => (
             <Card key={deal.id} className="text-sm p-3 border-l-4 border-l-green-500">
               <p className="font-medium text-foreground">{deal.title}</p>
-              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(deal.value, deal.currency)}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {formatCurrency(convertCurrency(deal.value, deal.baseCurrency, userCurrency), userCurrency)}
+              </p>
             </Card>
           ))}
 

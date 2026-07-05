@@ -39,8 +39,11 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     // 401 — token expired or invalid; signal the auth context to log out
     if (response.status === 401) {
       if (typeof window !== 'undefined') {
+        const hadToken = localStorage.getItem('auth_token');
         localStorage.removeItem('auth_token');
-        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        if (hadToken) {
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
       }
     }
     throw new Error(data.message || `API error: ${response.status}`);

@@ -6,6 +6,8 @@ export interface Organization {
   logo?: string;
   industry?: string;
   website?: string;
+  phone?: string;
+  address?: string;
   country: string;
   currency: string;
   timezone: string;
@@ -47,8 +49,13 @@ export interface User {
   timezone: string;
   language: string;
   currency: string;
+  phone?: string;
+  jobTitle?: string;
   emailNotifications: boolean;
   taskReminders: boolean;
+  meetingReminders: boolean;
+  dateFormat: string;
+  timeFormat: '12h' | '24h';
   avatar?: string;
   lastLoginAt?: Date | string;
   createdAt: Date | string;
@@ -108,7 +115,7 @@ export interface Deal {
   contactId?: string;
   company?: string;
   value: number;
-  currency: string;
+  baseCurrency: string;
   stage: DealStage;
   priority: DealPriority;
   expectedCloseDate?: Date | string;

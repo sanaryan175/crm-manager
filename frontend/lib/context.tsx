@@ -30,12 +30,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const profile = await apiFetch('/auth/me');
         setUser(profile);
-        // Load permissions
-        const org   = await apiFetch('/organization');
-        const roles = await apiFetch('/organization/roles');
-        const myRole = roles.find((r: any) => r.id === profile.role.id);
-        if (myRole) {
-          setPermissions(new Set(myRole.rolePermissions.map((rp: any) => rp.permission.name)));
+        // Load permissions - don't fail entire session if this fails
+        try {
+          const roles = await apiFetch('/organization/roles');
+          const myRole = roles.find((r: any) => r.id === profile.role.id);
+          if (myRole) {
+            setPermissions(new Set(myRole.rolePermissions.map((rp: any) => rp.permission.name)));
+          }
+        } catch {
+          // Permission loading failed - user can still use app without permissions
+          console.warn('Failed to load permissions');
         }
       } catch {
         if (typeof window !== 'undefined') localStorage.removeItem('auth_token');
@@ -93,7 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await _loadPermissions(data.user.role.id);
       // return requiresSetup so caller knows to redirect to /onboarding/setup
       return data;
-    } catch (error) {
+    } catch (error: any) {
       setUser(null);
       throw error;
     } finally {
@@ -118,21 +122,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const profile = await apiFetch('/auth/me');
       setUser(profile);
+      // Also reload permissions so auth state is fully hydrated (e.g. after invite acceptance)
+      await _loadPermissions(profile.role.id);
     } catch {
       // silently ignore — stale data stays until next navigation
     }
-  }, []);
+  }, [_loadPermissions]);
 
   // Listen for 401 events dispatched by apiFetch and auto-logout
   useEffect(() => {
+    let hasDispatched = false;
+
     const handleUnauthorized = () => {
+      if (hasDispatched) return;
+      hasDispatched = true;
       setUser(null);
       setPermissions(new Set());
-      // addToast is not available here directly — we dispatch a second event
-      // that UIContext can listen to, OR we import addToast via a ref.
-      // Simplest approach: dispatch a storage event so the toast is shown
-      // from within a component that has UIContext access. Instead, we
-      // surface the event through a global CustomEvent that root-layout picks up.
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('auth:show-session-expired'));
       }

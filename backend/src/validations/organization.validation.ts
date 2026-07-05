@@ -11,6 +11,8 @@ export const updateOrganizationSchema = z.object({
     timezone:      z.string().optional(),
     fiscalYear:    z.number().int().min(1).max(12).optional(),
     companySize:   z.string().optional(),
+    phone:         z.string().optional().transform(v => v === '' ? undefined : v),
+    address:       z.string().optional().transform(v => v === '' ? undefined : v),
     setupComplete: z.boolean().optional(),
   }),
 });

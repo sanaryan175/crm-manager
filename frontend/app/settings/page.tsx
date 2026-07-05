@@ -175,7 +175,7 @@ function OrgEditForm({
   onSave,
 }: {
   org: any;
-  onSave: (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string }) => Promise<void>;
+  onSave: (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string; phone?: string; address?: string }) => Promise<void>;
 }) {
   const { addToast } = useUI();
   const [name,        setName]        = useState(org?.name ?? '');
@@ -183,6 +183,8 @@ function OrgEditForm({
   const [currency,    setCurrency]    = useState(org?.currency ?? '');
   const [timezone,    setTimezone]    = useState(org?.timezone ?? '');
   const [website,     setWebsite]     = useState(org?.website ?? '');
+  const [phone,       setPhone]       = useState(org?.phone ?? '');
+  const [address,     setAddress]     = useState(org?.address ?? '');
   const [submitting,  setSubmitting]  = useState(false);
 
   const inp = 'w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors';
@@ -192,7 +194,7 @@ function OrgEditForm({
     if (!name.trim()) { addToast({ type: 'error', message: 'Organization name is required.' }); return; }
     setSubmitting(true);
     try {
-      await onSave({ name: name.trim(), country, currency, timezone, website: website.trim() || undefined });
+      await onSave({ name: name.trim(), country, currency, timezone, website: website.trim() || undefined, phone: phone.trim() || undefined, address: address.trim() || undefined });
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to update organization.' });
     } finally {
@@ -225,6 +227,14 @@ function OrgEditForm({
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Website <span className="font-normal normal-case text-muted-foreground/60">(optional)</span></label>
         <input type="url" className={inp} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://company.com" />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone <span className="font-normal normal-case text-muted-foreground/60">(optional)</span></label>
+        <input type="tel" className={inp} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Address <span className="font-normal normal-case text-muted-foreground/60">(optional)</span></label>
+        <input className={inp} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City" />
       </div>
       <button type="submit" disabled={submitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
         {submitting ? 'Saving...' : 'Save Changes'}
@@ -665,6 +675,8 @@ export default function SettingsPage() {
                 { label: 'Country',      value: organization?.country },
                 { label: 'Currency',     value: organization?.currency },
                 { label: 'Timezone',     value: organization?.timezone },
+                { label: 'Phone',        value: organization?.phone ?? '—' },
+                { label: 'Address',      value: organization?.address ?? '—' },
                 { label: 'Website',      value: organization?.website ?? '—' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">

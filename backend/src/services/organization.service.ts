@@ -22,6 +22,8 @@ export class OrganizationService {
       timezone?:      string;
       fiscalYear?:    number;
       companySize?:   string;
+      phone?:         string;
+      address?:       string;
       setupComplete?: boolean;
     }
   ) {

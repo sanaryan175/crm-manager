@@ -246,7 +246,7 @@ export const useDashboardMetrics = () => {
 export const useOrganization = () => {
   const { data, isLoading, error, refetch } = useQuery<Organization>('organization', '/organization');
 
-  const updateOrganization = async (updates: { name?: string; country?: string; currency?: string }) => {
+  const updateOrganization = async (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string; phone?: string; address?: string }) => {
     const response = await apiFetch('/organization', {
       method: 'PUT',
       body: JSON.stringify(updates),
@@ -303,6 +303,9 @@ export const useInvitations = () => {
       body: JSON.stringify({ email, roleId }),
     });
     triggerRefresh('invitations');
+    if (response && response.emailSent === false) {
+      throw new Error('Invitation created but email delivery failed. Share the invite link manually.');
+    }
     return response;
   };
 
@@ -315,6 +318,9 @@ export const useInvitations = () => {
   const resendInvitation = async (id: string) => {
     const response = await apiFetch(`/invitations/${id}/resend`, { method: 'POST' });
     triggerRefresh('invitations');
+    if (response && response.emailSent === false) {
+      throw new Error('Invitation resent but email delivery failed. Share the invite link manually.');
+    }
     return response;
   };
 

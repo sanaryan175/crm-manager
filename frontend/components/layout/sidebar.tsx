@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, Briefcase, CheckSquare,
-  Settings, LogOut, X,
+  Settings, LogOut, X, BarChart3, UserPlus,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/context';
@@ -19,10 +19,12 @@ interface SidebarProps {
 // Each item declares the permission needed to see it.
 // 'dashboard' is visible to everyone (no permission guard).
 const NAV_ITEMS = [
-  { label: 'Dashboard',  href: '/dashboard',  icon: LayoutDashboard, permission: null },
-  { label: 'Contacts',   href: '/contacts',   icon: Users,           permission: 'contact.read' },
-  { label: 'Deals',      href: '/deals',      icon: Briefcase,       permission: 'deal.read' },
-  { label: 'Activities', href: '/activities', icon: CheckSquare,     permission: 'activity.read' },
+  { label: 'Dashboard',  href: '/dashboard',       icon: LayoutDashboard, permission: null },
+  { label: 'Contacts',   href: '/contacts',         icon: Users,           permission: 'contact.read' },
+  { label: 'Deals',      href: '/deals',            icon: Briefcase,       permission: 'deal.read' },
+  { label: 'Activities', href: '/activities',       icon: CheckSquare,     permission: 'activity.read' },
+  { label: 'Reports',    href: '/reports',          icon: BarChart3,       permission: 'reports.view' },
+  { label: 'Team',       href: '/settings?tab=team',icon: UserPlus,        permission: 'user.read' },
 ] as const;
 
 export default function Sidebar({ isOpen, onToggle }: SidebarProps) {

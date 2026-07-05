@@ -84,6 +84,8 @@ model Organization {
   logo         String?
   industry     String?
   website      String?
+  phone        String?
+  address      String?
   country      String   @default("US")
   currency     String   @default("USD")
   timezone     String   @default("UTC")
@@ -178,6 +180,11 @@ model User {
   currency           String   @default("USD")
   emailNotifications Boolean  @default(true) @map("email_notifications")
   taskReminders      Boolean  @default(true) @map("task_reminders")
+  meetingReminders   Boolean  @default(true) @map("meeting_reminders")
+  phone              String?
+  jobTitle           String?  @map("job_title")
+  dateFormat         String   @default("MM/DD/YYYY") @map("date_format")
+  timeFormat         String   @default("12h") @map("time_format")
   lastLoginAt        DateTime? @map("last_login_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
@@ -276,8 +283,8 @@ model Deal {
   title             String
   contactId         String?          @map("contact_id")
   company           String?
-  value             Float
-  currency          String           @default("USD")
+  value             Float            // Stored in organization's base currency
+  baseCurrency      String           @map("base_currency") @default("USD") // Organization's base currency
   stage             DealStage        @default(new)
   priority          DealPriority     @default(medium)
   expectedCloseDate DateTime?        @map("expected_close_date")

@@ -3,10 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Mail, Building2, CheckCircle, ArrowRight, Bell, Clock, Globe } from 'lucide-react';
+import {
+  User, Mail, Building2, CheckCircle, ArrowRight, Bell, Clock, Globe,
+  Briefcase, Phone, Palette,
+} from 'lucide-react';
 import { useAuth, useUI } from '@/lib/context';
 import { apiFetch } from '@/lib/api';
 import Card from '@/components/ui/card';
+
+const DATE_FORMATS = [
+  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (US)' },
+  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (EU)' },
+  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (ISO)' },
+];
+
+const TIME_FORMATS = [
+  { value: '12h', label: '12-hour (9:00 AM)' },
+  { value: '24h', label: '24-hour (09:00)' },
+];
+
+const THEMES = [
+  { value: 'system', label: 'System', desc: 'Follow device setting' },
+  { value: 'dark', label: 'Dark', desc: 'Easy on the eyes' },
+  { value: 'light', label: 'Light', desc: 'Bright mode' },
+];
 
 export default function UserOnboardingPage() {
   const router = useRouter();
@@ -20,7 +40,16 @@ export default function UserOnboardingPage() {
     currency: 'USD',
     emailNotifications: true,
     taskReminders: true,
+    meetingReminders: true,
+    phone: '',
+    jobTitle: '',
+    dateFormat: 'MM/DD/YYYY',
+    timeFormat: '12h',
+    theme: 'system',
   });
+
+  const setPref = (key: keyof typeof preferences, value: any) =>
+    setPreferences((prev) => ({ ...prev, [key]: value }));
 
   // Guard: only authenticated non-owners with incomplete onboarding can be here
   useEffect(() => {
@@ -41,6 +70,10 @@ export default function UserOnboardingPage() {
         method: 'POST',
         body: JSON.stringify(preferences),
       });
+      // Persist theme preference to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('pref_theme', preferences.theme);
+      }
       addToast({ type: 'success', message: 'Welcome to the team! You\'re all set.' });
       await refreshUser();
       router.replace('/dashboard');
@@ -177,12 +210,76 @@ export default function UserOnboardingPage() {
               </div>
             </div>
 
+            {/* Job Title */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Briefcase className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Job Title</p>
+                <input
+                  type="text"
+                  placeholder="e.g. Sales Manager"
+                  value={preferences.jobTitle}
+                  onChange={(e) => setPref('jobTitle', e.target.value)}
+                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                />
+              </div>
+            </div>
+
+            {/* Phone */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Phone className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Phone</p>
+                <input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={preferences.phone}
+                  onChange={(e) => setPref('phone', e.target.value)}
+                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                />
+              </div>
+            </div>
+
             {/* Timezone */}
             <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
               <Clock className="w-5 h-5 text-primary flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Timezone</p>
                 <p className="text-sm font-medium text-foreground">{preferences.timezone}</p>
+              </div>
+            </div>
+
+            {/* Date Format */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Date Format</p>
+                <select
+                  value={preferences.dateFormat}
+                  onChange={(e) => setPref('dateFormat', e.target.value)}
+                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none"
+                >
+                  {DATE_FORMATS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Time Format */}
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
+              <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Time Format</p>
+                <select
+                  value={preferences.timeFormat}
+                  onChange={(e) => setPref('timeFormat', e.target.value)}
+                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none"
+                >
+                  {TIME_FORMATS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -219,6 +316,46 @@ export default function UserOnboardingPage() {
                 <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${preferences.taskReminders ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>
             </div>
+
+            {/* Meeting Reminders */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Bell className="w-5 h-5 text-primary flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Meeting Reminders</p>
+                  <p className="text-xs text-muted-foreground">Get notified about upcoming meetings</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreferences({ ...preferences, meetingReminders: !preferences.meetingReminders })}
+                className={`w-12 h-6 rounded-full transition-colors ${preferences.meetingReminders ? 'bg-primary' : 'bg-muted'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${preferences.meetingReminders ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Appearance */}
+        <Card className="p-6 shadow-xl border border-border/40 bg-card/80 backdrop-blur-sm mb-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Appearance</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {THEMES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setPref('theme', t.value)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
+                  preferences.theme === t.value
+                    ? 'bg-primary/10 border-primary/40 text-foreground'
+                    : 'bg-muted/20 border-border/40 text-muted-foreground hover:border-primary/30'
+                }`}
+              >
+                <Palette className="w-5 h-5" />
+                <span className="text-sm font-semibold">{t.label}</span>
+                <span className="text-xs">{t.desc}</span>
+              </button>
+            ))}
           </div>
         </Card>
 

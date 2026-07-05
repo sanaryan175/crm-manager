@@ -4,48 +4,39 @@ import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDeals } from '@/lib/hooks';
 import { useRegion } from '@/lib/context';
+import { useAuth } from '@/lib/context';
+import { convertCurrency } from '@/lib/currency';
 import { DEAL_STAGES } from '@/lib/types';
 import Card, { CardHeader } from '@/components/ui/card';
 
 export default function PipelineOverview() {
   const { deals, isLoading, error } = useDeals();
   const { formatMoney, formatMoneyCompact } = useRegion();
+  const { user } = useAuth();
+  const userCurrency = user?.currency || 'USD';
 
   const chartData = useMemo(() => {
     const grouped: Record<string, number> = {};
     const counts: Record<string, number> = {};
-    const currencyBreakdown: Record<string, Record<string, number>> = {};
 
     deals.forEach((deal) => {
-      // Group by stage for counts
+      // Convert deal value from base currency to user's preferred currency
+      const convertedValue = convertCurrency(deal.value, deal.baseCurrency, userCurrency);
+      
+      // Group by stage for counts and values
       counts[deal.stage] = (counts[deal.stage] || 0) + 1;
-      
-      // Group by stage AND currency for values
-      if (!currencyBreakdown[deal.stage]) {
-        currencyBreakdown[deal.stage] = {};
-      }
-      currencyBreakdown[deal.stage][deal.currency] = (currencyBreakdown[deal.stage][deal.currency] || 0) + deal.value;
-      
-      // For the chart, we'll use the dominant currency or first currency
-      grouped[deal.stage] = (grouped[deal.stage] || 0) + deal.value;
+      grouped[deal.stage] = (grouped[deal.stage] || 0) + convertedValue;
     });
 
     return Object.entries(DEAL_STAGES)
       .filter(([stage]) => stage !== 'closed_lost')
-      .map(([stage, config]) => {
-        const stageCurrencies = currencyBreakdown[stage] || {};
-        const currencyKeys = Object.keys(stageCurrencies);
-        const dominantCurrency = currencyKeys.length > 0 ? currencyKeys[0] : 'USD';
-        
-        return {
-          name: config.label,
-          value: grouped[stage] || 0,
-          count: counts[stage] || 0,
-          currency: dominantCurrency,
-          currencyBreakdown: stageCurrencies,
-        };
-      });
-  }, [deals]);
+      .map(([stage, config]) => ({
+        name: config.label,
+        value: grouped[stage] || 0,
+        count: counts[stage] || 0,
+        currency: userCurrency,
+      }));
+  }, [deals, userCurrency]);
 
   if (error) {
     return <Card className="flex items-center justify-center h-96 text-red-500 text-sm">Failed to load pipeline data.</Card>;
@@ -66,16 +57,7 @@ export default function PipelineOverview() {
               tickFormatter={(v) => formatMoneyCompact(v)} />
             <Tooltip
               contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-              formatter={(value, name, props) => {
-                const item = chartData[props.payload?.dataKey || 0];
-                if (item && item.currencyBreakdown && Object.keys(item.currencyBreakdown).length > 1) {
-                  const breakdown = Object.entries(item.currencyBreakdown)
-                    .map(([curr, val]) => `${formatMoneyCompact(Number(val), curr)}`)
-                    .join(' + ');
-                  return [breakdown, name];
-                }
-                return [formatMoney(Number(value ?? 0), item?.currency || 'USD'), name];
-              }}
+              formatter={(value) => [formatMoney(Number(value ?? 0), userCurrency), 'Value']}
             />
             <Bar dataKey="value" fill="url(#gradient)" radius={[8, 8, 0, 0]} animationDuration={800} />
             <defs>
@@ -92,12 +74,7 @@ export default function PipelineOverview() {
           <div key={item.name}>
             <p className="text-xs text-muted-foreground">{item.name}</p>
             <p className="text-sm font-semibold text-foreground">
-              {Object.keys(item.currencyBreakdown).length > 1
-                ? Object.entries(item.currencyBreakdown)
-                    .map(([curr, val]) => formatMoneyCompact(Number(val), curr))
-                    .join(' + ')
-                : formatMoneyCompact(item.value, item.currency)
-              } ({item.count} deals)
+              {formatMoneyCompact(item.value, item.currency)} ({item.count} deals)
             </p>
           </div>
         ))}

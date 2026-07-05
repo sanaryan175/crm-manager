@@ -130,7 +130,7 @@ export default function SetupPage() {
         body:   JSON.stringify(payload),
       });
       addToast({ type: 'success', message: 'Organization setup complete! Welcome to your CRM.' });
-      router.replace('/dashboard');
+      router.replace('/onboarding/welcome');
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Setup failed. Please try again.' });
     } finally {

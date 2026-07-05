@@ -37,8 +37,25 @@ export const loginSchema = z.object({
 
 export const updateProfileSchema = z.object({
   body: z.object({
-    name:   z.string().min(1).optional(),
-    avatar: z.string().optional(),
+    name:     z.string().min(1).optional(),
+    avatar:   z.string().optional(),
+    phone:    z.string().optional().transform(v => v === '' ? undefined : v),
+    jobTitle: z.string().optional().transform(v => v === '' ? undefined : v),
+  }),
+});
+
+export const completeOnboardingSchema = z.object({
+  body: z.object({
+    timezone:            z.string().optional(),
+    language:            z.string().optional(),
+    currency:            z.string().optional(),
+    phone:               z.string().optional().transform(v => v === '' ? undefined : v),
+    jobTitle:            z.string().optional().transform(v => v === '' ? undefined : v),
+    dateFormat:          z.string().optional(),
+    timeFormat:          z.enum(['12h', '24h']).optional(),
+    emailNotifications:  z.boolean().optional(),
+    taskReminders:       z.boolean().optional(),
+    meetingReminders:    z.boolean().optional(),
   }),
 });
 

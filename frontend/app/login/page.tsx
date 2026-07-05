@@ -21,12 +21,20 @@ export default function LoginPage() {
   const [showConfirm, setShowConfirm]         = useState(false);
   const [isSubmitting, setIsSubmitting]       = useState(false);
 
+  // Read ?mode=register from URL on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'register') setMode('register');
+    }
+  }, []);
+
   // Redirect if already logged in (handles session restore and post-login state update)
   useEffect(() => {
     if (!user) return;
     
     const orgSetupComplete = user.organization?.setupComplete ?? false;
-    const userOnboardingComplete = user.onboardingComplete ?? true;
+    const userOnboardingComplete = user.onboardingComplete ?? false;
 
     // Owner without org setup → go to org setup wizard
     if (user.isOwner && !orgSetupComplete) {
@@ -82,7 +90,7 @@ export default function LoginPage() {
         addToast({ type: 'success', message: `Welcome back, ${loggedInUser.name.split(' ')[0]}!` });
         // Explicitly route based on user type and onboarding state
         const orgSetupComplete = loggedInUser.organization?.setupComplete ?? false;
-        const userOnboardingComplete = loggedInUser.onboardingComplete ?? true;
+        const userOnboardingComplete = loggedInUser.onboardingComplete ?? false;
 
         if (loggedInUser.isOwner && !orgSetupComplete) {
           router.replace('/onboarding/setup');

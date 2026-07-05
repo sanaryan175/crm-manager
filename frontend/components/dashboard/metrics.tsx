@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Users, TrendingUp, DollarSign, Target, ArrowUpRight } from 'lucide-react';
 import { useDashboardMetrics, useDeals } from '@/lib/hooks';
 import { useRegion } from '@/lib/context';
+import { useAuth } from '@/lib/context';
+import { convertCurrency } from '@/lib/currency';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 
@@ -12,37 +14,34 @@ export default function DashboardMetrics() {
   const { metrics, isLoading, error } = useDashboardMetrics();
   const { deals } = useDeals();
   const { formatMoneyCompact } = useRegion();
+  const { user } = useAuth();
+  const userCurrency = user?.currency || 'USD';
 
-  // Calculate currency breakdown for pipeline value
-  const pipelineCurrencyBreakdown = useMemo(() => {
-    const breakdown: Record<string, number> = {};
+  // Calculate pipeline value in user's preferred currency
+  const pipelineValue = useMemo(() => {
+    let total = 0;
     deals.forEach((deal: any) => {
       if (deal.stage !== 'closed_lost') {
-        breakdown[deal.currency] = (breakdown[deal.currency] || 0) + deal.value;
+        const convertedValue = convertCurrency(deal.value, deal.baseCurrency, userCurrency);
+        total += convertedValue;
       }
     });
-    return breakdown;
-  }, [deals]);
+    return total;
+  }, [deals, userCurrency]);
 
-  // Calculate currency breakdown for closed won this month
-  const closedWonCurrencyBreakdown = useMemo(() => {
+  // Calculate closed won this month in user's preferred currency
+  const closedWonThisMonth = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const breakdown: Record<string, number> = {};
+    let total = 0;
     deals.forEach((deal: any) => {
       if (deal.stage === 'closed_won' && new Date(deal.closedAt || '') >= startOfMonth) {
-        breakdown[deal.currency] = (breakdown[deal.currency] || 0) + deal.value;
+        const convertedValue = convertCurrency(deal.value, deal.baseCurrency, userCurrency);
+        total += convertedValue;
       }
     });
-    return breakdown;
-  }, [deals]);
-
-  const formatMultiCurrency = (breakdown: Record<string, number>) => {
-    const currencies = Object.keys(breakdown);
-    if (currencies.length === 0) return '$0';
-    if (currencies.length === 1) return formatMoneyCompact(breakdown[currencies[0]], currencies[0]);
-    return currencies.map(c => formatMoneyCompact(breakdown[c], c)).join(' + ');
-  };
+    return total;
+  }, [deals, userCurrency]);
 
   if (error) {
     return (
@@ -72,7 +71,7 @@ export default function DashboardMetrics() {
     },
     {
       label: 'Pipeline Value',
-      value: formatMultiCurrency(pipelineCurrencyBreakdown),
+      value: formatMoneyCompact(pipelineValue, userCurrency),
       icon: DollarSign,
       color: 'from-green-500 to-emerald-500',
       trend: '+28%',
@@ -86,7 +85,7 @@ export default function DashboardMetrics() {
     },
     {
       label: 'Closed This Month',
-      value: formatMultiCurrency(closedWonCurrencyBreakdown),
+      value: formatMoneyCompact(closedWonThisMonth, userCurrency),
       icon: TrendingUp,
       color: 'from-orange-500 to-red-500',
       trend: '+15%',
