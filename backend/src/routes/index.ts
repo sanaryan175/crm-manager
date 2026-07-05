@@ -7,6 +7,7 @@ import dashboardRouter   from './dashboard.routes';
 import organizationRouter from './organization.routes';
 import invitationRouter  from './invitation.routes';
 import userRouter        from './user.routes';
+import fileRouter        from './file.routes';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/dashboard',    dashboardRouter);
 router.use('/organization', organizationRouter);
 router.use('/invitations',  invitationRouter);
 router.use('/users',        userRouter);
+router.use('/files',        fileRouter);
 
 export default router;

@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { NotFoundError } from '../utils/errors';
 import { ActivityType } from '@prisma/client';
+import { EmailService } from './email.service';
 
 const ACTIVITY_INCLUDE = {
   contact:    { select: { id: true, firstName: true, lastName: true, company: true } },
@@ -19,6 +20,33 @@ export class ActivityService {
       where: { id: assignedToId, organizationId, isActive: true },
     });
     if (!user) throw new NotFoundError('Assigned user not found');
+  }
+
+  private static async notifyAssigned(
+    organizationId: string, activity: { subject: string; type: string; dueDate?: Date | null },
+    assignedToId: string | null | undefined, assignedByName: string,
+  ) {
+    try {
+      if (!assignedToId) return;
+      const assignedUser = await prisma.user.findFirst({
+        where: { id: assignedToId, organizationId, isActive: true, emailNotifications: true },
+        select: { id: true, name: true, email: true },
+      });
+      if (!assignedUser) return;
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId }, select: { name: true },
+      });
+      const typeLabel = activity.type.charAt(0).toUpperCase() + activity.type.slice(1);
+      await EmailService.sendActivityAssignedEmail({
+        to: assignedUser.email,
+        assignedToName: assignedUser.name,
+        activitySubject: activity.subject,
+        activityType: typeLabel,
+        dueDate: activity.dueDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        assignedByName,
+        organizationName: org?.name || 'CRM',
+      });
+    } catch { /* notification errors are non-critical */ }
   }
 
   private static async ensureContact(organizationId: string, contactId?: string | null) {
@@ -91,10 +119,18 @@ export class ActivityService {
 
     const completed   = data.completed || false;
     const completedAt = completed ? new Date() : null;
-    return prisma.activity.create({
+    const createdActivity = await prisma.activity.create({
       data: { ...data, completed, completedAt, organizationId, createdById },
       include: ACTIVITY_INCLUDE,
     });
+
+    const creator = await prisma.user.findFirst({
+      where: { id: createdById, organizationId },
+      select: { name: true },
+    });
+    this.notifyAssigned(organizationId, createdActivity, data.assignedToId, creator?.name || 'Someone').catch(() => {});
+
+    return createdActivity;
   }
 
   static async updateActivity(
@@ -115,7 +151,17 @@ export class ActivityService {
       updatedData.completedAt = data.completed ? new Date() : null;
     }
 
-    return prisma.activity.update({ where: { id }, data: updatedData, include: ACTIVITY_INCLUDE });
+    const updatedActivity = await prisma.activity.update({ where: { id }, data: updatedData, include: ACTIVITY_INCLUDE });
+
+    if (data.assignedToId && data.assignedToId !== existing.assignedToId) {
+      const actor = await prisma.user.findFirst({
+        where: { id: actorId, organizationId },
+        select: { name: true },
+      });
+      this.notifyAssigned(organizationId, updatedActivity, data.assignedToId, actor?.name || 'Someone').catch(() => {});
+    }
+
+    return updatedActivity;
   }
 
   static async completeActivity(

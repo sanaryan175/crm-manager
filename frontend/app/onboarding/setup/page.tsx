@@ -54,7 +54,7 @@ const STEPS = [
 
 export default function SetupPage() {
   const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshUser } = useAuth();
   const { addToast } = useUI();
 
   const [step, setStep]           = useState(1);
@@ -129,8 +129,9 @@ export default function SetupPage() {
         method: 'POST',
         body:   JSON.stringify(payload),
       });
-      addToast({ type: 'success', message: 'Organization setup complete! Welcome to your CRM.' });
-      router.replace('/onboarding/welcome');
+      await refreshUser();
+      addToast({ type: 'success', message: 'Organization setup complete!' });
+      router.replace('/dashboard');
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Setup failed. Please try again.' });
     } finally {

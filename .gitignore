@@ -21,6 +21,10 @@ backend/.env
 .turbo/
 .vercel/
 
+# Uploaded files
+uploads/
+*/uploads/
+
 # OS / editor
 .DS_Store
 Thumbs.db

@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { NotFoundError } from '../utils/errors';
 import { ContactStatus, ContactSource } from '@prisma/client';
+import { EmailService } from './email.service';
 
 const CONTACT_INCLUDE = {
   assignedTo: { select: { id: true, name: true, email: true, avatar: true } },
@@ -28,6 +29,31 @@ export class ContactService {
       where: { id: assignedToId, organizationId, isActive: true },
     });
     if (!user) throw new NotFoundError('Assigned user not found');
+  }
+
+  private static async notifyAssigned(
+    organizationId: string, contact: { id: string; firstName: string; lastName: string; email: string },
+    assignedToId: string | null | undefined, assignedByName: string,
+  ) {
+    try {
+      if (!assignedToId) return;
+      const assignedUser = await prisma.user.findFirst({
+        where: { id: assignedToId, organizationId, isActive: true, emailNotifications: true },
+        select: { id: true, name: true, email: true },
+      });
+      if (!assignedUser) return;
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId }, select: { name: true },
+      });
+      await EmailService.sendContactAssignedEmail({
+        to: assignedUser.email,
+        assignedToName: assignedUser.name,
+        contactName: `${contact.firstName} ${contact.lastName}`,
+        contactEmail: contact.email,
+        assignedByName,
+        organizationName: org?.name || 'CRM',
+      });
+    } catch { /* notification errors are non-critical */ }
   }
 
   static async getContacts(
@@ -97,6 +123,13 @@ export class ContactService {
       data: { ...data, tags: data.tags || [], organizationId, createdById },
       include: CONTACT_INCLUDE,
     });
+
+    const creator = await prisma.user.findFirst({
+      where: { id: createdById, organizationId },
+      select: { name: true },
+    });
+    this.notifyAssigned(organizationId, contact, data.assignedToId, creator?.name || 'Someone').catch(() => {});
+
     return this.mapContact(contact);
   }
 
@@ -107,7 +140,7 @@ export class ContactService {
     actorRoleName: string,
     data: any
   ) {
-    await this.getContactById(id, organizationId, actorId, actorRoleName);
+    const existing = await this.getContactById(id, organizationId, actorId, actorRoleName);
     await this.ensureAssignableUser(organizationId, data.assignedToId);
 
     const contact = await prisma.contact.update({
@@ -115,6 +148,16 @@ export class ContactService {
       data,
       include: CONTACT_INCLUDE,
     });
+
+    const existingAssignedId = existing.assignedTo && typeof existing.assignedTo === 'object' ? (existing.assignedTo as any).id : existing.assignedTo;
+    if (data.assignedToId && data.assignedToId !== existingAssignedId) {
+      const actor = await prisma.user.findFirst({
+        where: { id: actorId, organizationId },
+        select: { name: true },
+      });
+      this.notifyAssigned(organizationId, contact, data.assignedToId, actor?.name || 'Someone').catch(() => {});
+    }
+
     return this.mapContact(contact);
   }
 

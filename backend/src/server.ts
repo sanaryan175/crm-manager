@@ -9,6 +9,8 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`=================================`);
   console.log(`🚀 API Server running on port ${PORT}`);
+  const brevoKey = process.env.BREVO_API_KEY;
+  console.log(`📧 Email service: ${brevoKey ? 'configured' : 'MISSING API KEY'}`);
   console.log(`=================================`);
 });
 

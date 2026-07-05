@@ -3,6 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import { generateToken } from '../utils/jwt';
 import { BadRequestError } from '../utils/errors';
 import { ROLE_DEFINITIONS } from '../rbac/permissions';
+import { EmailService } from './email.service';
 
 export class OnboardingService {
   /**
@@ -120,11 +121,18 @@ export class OnboardingService {
       roleName:       'owner',
     });
 
+    // Send welcome email (non-blocking, error-safe)
+    EmailService.sendWelcomeEmail({
+      to: data.ownerEmail,
+      name: data.ownerName,
+      organizationName: result.org.name,
+    }).catch(() => {});
+
     return {
       user:              result.owner,
       organization:      result.org,
       token,
-      requiresSetup:     true,   // frontend uses this to redirect to /onboarding/setup
+      requiresSetup:     true,
     };
   }
 

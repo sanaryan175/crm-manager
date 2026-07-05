@@ -213,3 +213,29 @@ export interface PipelineMetrics {
   value: number;
   avgValue: number;
 }
+
+// File Entry Types
+export interface FileEntry {
+  id: string;
+  organizationId: string;
+  uploadedById: string;
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  folder: string;
+  createdAt: string;
+  updatedAt: string;
+  uploadedBy: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
+}
+
+export interface FileStructure {
+  folders: string[];
+  files: FileEntry[];
+  tree: Record<string, FileEntry[]>;
+}

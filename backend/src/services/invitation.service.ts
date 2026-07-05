@@ -198,6 +198,18 @@ export class InvitationService {
 
     const { password: _pw, ...userSafe } = result;
 
+    // Send welcome email (non-blocking, error-safe)
+    const inviterUser = await prisma.user.findFirst({
+      where: { id: matched.invitedById },
+      select: { name: true },
+    });
+    EmailService.sendInvitationAcceptedEmail({
+      to: matched.email,
+      name: data.name,
+      organizationName: matched.organization.name,
+      invitedByName: inviterUser?.name || 'Your team',
+    }).catch(() => {});
+
     const token = generateToken({
       userId:         result.id,
       organizationId: matched.organizationId,

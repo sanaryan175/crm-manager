@@ -2,6 +2,7 @@ import prisma from '../config/db';
 import { NotFoundError } from '../utils/errors';
 import { DealStage, DealPriority, DealCloseReason } from '@prisma/client';
 import { convertCurrency } from './currency.service';
+import { EmailService } from './email.service';
 
 const DEAL_INCLUDE = {
   contact:    { select: { id: true, firstName: true, lastName: true, company: true, email: true } },
@@ -19,6 +20,37 @@ export class DealService {
       where: { id: assignedToId, organizationId, isActive: true },
     });
     if (!user) throw new NotFoundError('Assigned user not found');
+  }
+
+  private static async notifyAssigned(
+    organizationId: string,
+    dealTitle: string,
+    dealValue: number,
+    baseCurrency: string,
+    assignedToId: string | null | undefined,
+    assignedByName: string,
+  ) {
+    try {
+      if (!assignedToId) return;
+      const assignedUser = await prisma.user.findFirst({
+        where: { id: assignedToId, organizationId, isActive: true, emailNotifications: true },
+        select: { id: true, name: true, email: true },
+      });
+      if (!assignedUser) return;
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true },
+      });
+      await EmailService.sendDealAssignedEmail({
+        to: assignedUser.email,
+        assignedToName: assignedUser.name,
+        dealTitle,
+        dealValue,
+        currency: baseCurrency,
+        assignedByName,
+        organizationName: org?.name || 'CRM',
+      });
+    } catch { /* notification errors are non-critical */ }
   }
 
   private static async ensureContact(organizationId: string, contactId?: string | null) {
@@ -103,7 +135,7 @@ export class DealService {
     if (data.stage === DealStage.closed_won) { closedAt = new Date(); closeReason = DealCloseReason.won; }
     if (data.stage === DealStage.closed_lost) { closedAt = new Date(); closeReason = DealCloseReason.lost; }
 
-    return prisma.deal.create({
+    const createdDeal = await prisma.deal.create({
       data: {
         ...data,
         company: finalCompany,
@@ -116,6 +148,19 @@ export class DealService {
       },
       include: DEAL_INCLUDE,
     });
+
+    // Notify assignee (non-blocking)
+    const creator = await prisma.user.findFirst({
+      where: { id: createdById, organizationId },
+      select: { name: true },
+    });
+    this.notifyAssigned(
+      organizationId, createdDeal.title,
+      createdDeal.value, createdDeal.baseCurrency,
+      data.assignedToId, creator?.name || 'Someone'
+    ).catch(() => {});
+
+    return createdDeal;
   }
 
   static async updateDeal(
@@ -142,7 +187,22 @@ export class DealService {
       else { updatedData.closedAt = null; updatedData.closeReason = null; }
     }
 
-    return prisma.deal.update({ where: { id }, data: updatedData, include: DEAL_INCLUDE });
+    const updatedDeal = await prisma.deal.update({ where: { id }, data: updatedData, include: DEAL_INCLUDE });
+
+    // Notify if assignee changed (non-blocking)
+    if (data.assignedToId && data.assignedToId !== existing.assignedToId) {
+      const actor = await prisma.user.findFirst({
+        where: { id: actorId, organizationId },
+        select: { name: true },
+      });
+      this.notifyAssigned(
+        organizationId, updatedDeal.title,
+        updatedDeal.value, updatedDeal.baseCurrency,
+        data.assignedToId, actor?.name || 'Someone'
+      ).catch(() => {});
+    }
+
+    return updatedDeal;
   }
 
   static async updateDealStage(
