@@ -19,10 +19,6 @@ export class ContactService {
     };
   }
 
-  private static canAccess(contact: { createdById: string; assignedToId: string | null }, actorId: string, actorRoleName: string) {
-    return actorRoleName !== 'sales_rep' || contact.createdById === actorId || contact.assignedToId === actorId;
-  }
-
   private static async ensureAssignableUser(organizationId: string, assignedToId?: string | null) {
     if (!assignedToId) return;
     const user = await prisma.user.findFirst({
@@ -58,16 +54,11 @@ export class ContactService {
 
   static async getContacts(
     organizationId: string,
-    actorId: string,
-    actorRoleName: string,
+    _actorId: string,
+    _actorRoleName: string,
     filters: { status?: ContactStatus; source?: ContactSource; search?: string }
   ) {
     const where: any = { organizationId };
-
-    // Sales reps only see their own contacts
-    if (actorRoleName === 'sales_rep') {
-      where.OR = [{ createdById: actorId }, { assignedToId: actorId }];
-    }
 
     if (filters.status) where.status = filters.status;
     if (filters.source) where.source = filters.source;
@@ -93,17 +84,14 @@ export class ContactService {
   static async getContactById(
     id: string,
     organizationId: string,
-    actorId?: string,
-    actorRoleName?: string
+    _actorId?: string,
+    _actorRoleName?: string
   ) {
     const contact = await prisma.contact.findFirst({
       where: { id, organizationId },
       include: CONTACT_INCLUDE,
     });
     if (!contact) throw new NotFoundError('Contact not found');
-    if (actorId && actorRoleName && !this.canAccess(contact, actorId, actorRoleName)) {
-      throw new NotFoundError('Contact not found');
-    }
     return this.mapContact(contact);
   }
 
@@ -169,17 +157,13 @@ export class ContactService {
 
   static async bulkOperations(
     organizationId: string,
-    actorId: string,
-    actorRoleName: string,
+    _actorId: string,
+    _actorRoleName: string,
     action: 'assign' | 'tag' | 'delete',
     ids: string[],
     data: any
   ) {
     const where: any = { id: { in: ids }, organizationId };
-    if (actorRoleName === 'sales_rep') {
-      where.OR = [{ createdById: actorId }, { assignedToId: actorId }];
-    }
-
     const allowedCount = await prisma.contact.count({ where });
     if (allowedCount !== ids.length) throw new NotFoundError('One or more contacts not found');
 

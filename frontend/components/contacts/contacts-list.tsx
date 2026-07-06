@@ -5,15 +5,26 @@ import { motion } from 'framer-motion';
 import type { Contact } from '@/lib/types';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
-import { Mail, Phone, Pencil, Trash2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
+import { triggerRefresh } from '@/lib/hooks';
+import { useUI } from '@/lib/context';
+import { Mail, Phone, Pencil, Trash2, User as UserIcon, ChevronDown } from 'lucide-react';
 
 interface ContactsListProps {
   contacts: Contact[];
+  user?: any;
+  members?: any[];
+  canAssign?: boolean;
+  assignContactId?: string | null;
+  onAssign?: (id: string | null) => void;
+  onDetail?: (contact: Contact) => void;
   onEdit?: (contact: Contact) => void;
   onDelete?: (id: string) => void;
 }
 
-export default function ContactsList({ contacts, onEdit, onDelete }: ContactsListProps) {
+export default function ContactsList({ contacts, user, members, canAssign, assignContactId, onAssign, onDetail, onEdit, onDelete }: ContactsListProps) {
+  const { addToast } = useUI();
+
   if (contacts.length === 0) {
     return (
       <Card className="text-center py-12">
@@ -40,7 +51,10 @@ export default function ContactsList({ contacts, onEdit, onDelete }: ContactsLis
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
           >
-            <Card className="flex items-start justify-between gap-4 py-4 hover:border-primary/30 transition-colors">
+            <Card
+              className="flex items-start justify-between gap-4 py-4 hover:border-primary/30 transition-colors cursor-pointer"
+              onClick={() => onDetail?.(contact)}
+            >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -76,20 +90,64 @@ export default function ContactsList({ contacts, onEdit, onDelete }: ContactsLis
                     <Badge key={tag} variant="primary" size="sm">{tag}</Badge>
                   ))}
                 </div>
+
+                {/* Assignee row */}
+                <div onClick={e => e.stopPropagation()} className="flex items-center gap-2 mt-3 pl-[52px]">
+                  {assignedUser ? (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <UserIcon className="w-3 h-3" />
+                      {assignedUser.name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                  )}
+                  {canAssign && (
+                    <div className="relative">
+                      <button
+                        onClick={() => onAssign?.(assignContactId === contact.id ? null : contact.id)}
+                        className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-0.5"
+                      >
+                        Assign <ChevronDown className="w-3 h-3" />
+                      </button>
+                      {assignContactId === contact.id && (
+                        <div className="absolute left-0 top-6 z-50 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[180px] max-h-48 overflow-y-auto">
+                          <button
+                            onClick={async () => {
+                              await apiFetch(`/contacts/${contact.id}`, { method: 'PUT', body: JSON.stringify({ assignedToId: null }) });
+                              triggerRefresh('contacts');
+                              onAssign?.(null);
+                              addToast({ type: 'success', message: 'Contact unassigned.' });
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/30 transition-colors"
+                          >
+                            Unassign
+                          </button>
+                          {members?.filter(m => m.id !== (typeof contact.assignedTo === 'object' ? contact.assignedTo?.id : contact.assignedTo)).map(m => (
+                            <button
+                              key={m.id}
+                              onClick={async () => {
+                                await apiFetch(`/contacts/${contact.id}`, { method: 'PUT', body: JSON.stringify({ assignedToId: m.id }) });
+                                triggerRefresh('contacts');
+                                onAssign?.(null);
+                                addToast({ type: 'success', message: `Assigned to ${m.name}.` });
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-muted/30 transition-colors"
+                            >
+                              {m.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Right side */}
               <div className="flex items-center gap-3 flex-shrink-0">
-                {assignedUser && (
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs text-muted-foreground">Assigned to</p>
-                    <p className="text-sm font-medium text-foreground">{assignedUser.name}</p>
-                  </div>
-                )}
-
                 {onEdit && (
                   <button
-                    onClick={() => onEdit(contact)}
+                    onClick={(e) => { e.stopPropagation(); onEdit(contact); }}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                     title="Edit contact"
                   >
@@ -98,7 +156,7 @@ export default function ContactsList({ contacts, onEdit, onDelete }: ContactsLis
                 )}
                 {onDelete && (
                   <button
-                    onClick={() => onDelete(contact.id)}
+                    onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     title="Delete contact"
                   >

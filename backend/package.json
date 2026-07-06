@@ -11,6 +11,7 @@
         "prisma:migrate": "prisma migrate dev",
         "prisma:seed": "ts-node prisma/seed.ts",
         "verify": "ts-node src/scripts/verify-api.ts",
+        "backfill:perms": "ts-node src/scripts/backfill-permissions.ts",
         "test": "jest --runInBand",
         "test:run": "jest --runInBand --forceExit"
     },

@@ -176,9 +176,9 @@ model User {
   avatar             String?
   isOwner            Boolean  @default(false) @map("is_owner")
   onboardingComplete Boolean  @default(true) @map("onboarding_complete")
+  profileCompleted   Boolean  @default(false) @map("profile_completed")
   timezone           String   @default("UTC")
   language           String   @default("en")
-  currency           String   @default("USD")
   emailNotifications Boolean  @default(true) @map("email_notifications")
   taskReminders      Boolean  @default(true) @map("task_reminders")
   meetingReminders   Boolean  @default(true) @map("meeting_reminders")
@@ -285,8 +285,7 @@ model Deal {
   title             String
   contactId         String?          @map("contact_id")
   company           String?
-  value             Float            // Stored in organization's base currency
-  baseCurrency      String           @map("base_currency") @default("USD") // Organization's base currency
+  value             Float            // Always in organization's base currency
   stage             DealStage        @default(new)
   priority          DealPriority     @default(medium)
   expectedCloseDate DateTime?        @map("expected_close_date")

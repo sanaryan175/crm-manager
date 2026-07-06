@@ -1,5 +1,5 @@
 import prisma from '../config/db';
-import { NotFoundError } from '../utils/errors';
+import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors';
 
 export class OrganizationService {
   static async getOrganization(organizationId: string) {
@@ -25,10 +25,23 @@ export class OrganizationService {
       phone?:         string;
       address?:       string;
       setupComplete?: boolean;
-    }
+    },
+    actorRoleName?: string
   ) {
     const org = await prisma.organization.findUnique({ where: { id: organizationId } });
     if (!org) throw new NotFoundError('Organization not found');
+
+    if (data.currency !== undefined) {
+      const isOwnerOrAdmin = actorRoleName === 'owner' || actorRoleName === 'admin';
+      if (!isOwnerOrAdmin) throw new ForbiddenError('Only owner or admin can change the base currency');
+
+      if (data.currency !== org.currency) {
+        const dealCount = await prisma.deal.count({ where: { organizationId } });
+        if (dealCount > 0) {
+          throw new BadRequestError('The base currency cannot be changed after financial records have been created');
+        }
+      }
+    }
 
     return prisma.organization.update({
       where: { id: organizationId },

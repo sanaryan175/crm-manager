@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle, Circle, ArrowRight, UserPlus, Users,
-  Briefcase, Activity, Sparkles, ChevronRight, ExternalLink,
+  Briefcase, Activity, Sparkles, ChevronRight, ExternalLink, AlertCircle,
 } from 'lucide-react';
 import { useAuth, useUI } from '@/lib/context';
 import { apiFetch } from '@/lib/api';
@@ -330,6 +330,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   const [roleId,       setRoleId]       = useState('');
   const [roles,        setRoles]        = useState<{ id: string; name: string; displayName: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError]               = useState('');
 
   useEffect(() => {
     apiFetch('/organization/roles').then((r) => setRoles(r ?? [])).catch(() => {});
@@ -340,13 +341,19 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !roleId) return;
+    setError('');
     setIsSubmitting(true);
     try {
       await apiFetch('/invitations', { method: 'POST', body: JSON.stringify({ email, roleId }) });
       addToast({ type: 'success', message: `Invitation sent to ${email}` });
       onClose();
     } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to send invitation.' });
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('already exists')) {
+        setError(msg);
+      } else {
+        addToast({ type: 'error', message: msg || 'Failed to send invitation.' });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -394,6 +401,13 @@ function InviteModal({ onClose }: { onClose: () => void }) {
               ))}
             </select>
           </div>
+          {error && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-600">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted/40 transition-colors">

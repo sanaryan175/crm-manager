@@ -46,9 +46,9 @@ export interface User {
   isActive: boolean;
   isOwner: boolean;
   onboardingComplete: boolean;
+  profileCompleted: boolean;
   timezone: string;
   language: string;
-  currency: string;
   phone?: string;
   jobTitle?: string;
   emailNotifications: boolean;
@@ -59,7 +59,7 @@ export interface User {
   avatar?: string;
   lastLoginAt?: Date | string;
   createdAt: Date | string;
-  organization?: Pick<Organization, 'id' | 'name' | 'country' | 'currency' | 'setupComplete'>;
+  organization?: Pick<Organization, 'id' | 'name' | 'country' | 'currency' | 'setupComplete' | 'timezone'>;
 }
 
 // Contact Types
@@ -115,7 +115,6 @@ export interface Deal {
   contactId?: string;
   company?: string;
   value: number;
-  baseCurrency: string;
   stage: DealStage;
   priority: DealPriority;
   expectedCloseDate?: Date | string;

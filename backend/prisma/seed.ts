@@ -7,6 +7,7 @@ async function main() {
   console.log('Seeding database...');
 
   // Clean all tables in correct dependency order
+  await prisma.fileEntry.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.activity.deleteMany();
   await prisma.deal.deleteMany();
@@ -144,7 +145,7 @@ async function main() {
       organizationId: org.id,
       title: 'TechCorp Enterprise Contract',
       contactId: c1.id, company: 'TechCorp Inc',
-      value: 250000, baseCurrency: 'USD',
+      value: 250000,
       stage: DealStage.proposal_sent, priority: DealPriority.high,
       expectedCloseDate: new Date('2025-07-15'),
       assignedToId: emily.id, createdById: owner.id,
@@ -156,7 +157,7 @@ async function main() {
       organizationId: org.id,
       title: 'TechCorp Support Package',
       contactId: c1.id, company: 'TechCorp Inc',
-      value: 35000, baseCurrency: 'USD',
+      value: 35000,
       stage: DealStage.negotiation, priority: DealPriority.medium,
       assignedToId: emily.id, createdById: owner.id,
     },
@@ -166,7 +167,7 @@ async function main() {
       organizationId: org.id,
       title: 'Innovate Labs Pilot',
       contactId: c2.id, company: 'Innovate Labs',
-      value: 25000, baseCurrency: 'USD',
+      value: 25000,
       stage: DealStage.demo_scheduled, priority: DealPriority.high,
       expectedCloseDate: new Date('2025-08-01'),
       assignedToId: david.id, createdById: owner.id,
@@ -177,7 +178,7 @@ async function main() {
       organizationId: org.id,
       title: 'Global Retail Multi-Location',
       contactId: c3.id, company: 'Global Retail Co',
-      value: 180000, baseCurrency: 'USD',
+      value: 180000,
       stage: DealStage.contacted, priority: DealPriority.high,
       assignedToId: emily.id, createdById: owner.id,
     },
@@ -187,7 +188,7 @@ async function main() {
       organizationId: org.id,
       title: 'FinancePlus Reporting Module',
       contactId: c4.id, company: 'FinancePlus',
-      value: 45000, baseCurrency: 'USD',
+      value: 45000,
       stage: DealStage.new, priority: DealPriority.medium,
       assignedToId: david.id, createdById: owner.id,
     },
@@ -197,7 +198,7 @@ async function main() {
       organizationId: org.id,
       title: 'Closed Won - XYZ Marketing',
       company: 'XYZ Marketing',
-      value: 95000, baseCurrency: 'USD',
+      value: 95000,
       stage: DealStage.closed_won, priority: DealPriority.high,
       closeReason: DealCloseReason.won,
       closedAt: new Date('2025-06-15'),

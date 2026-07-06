@@ -3,8 +3,6 @@
 import React from 'react';
 import type { Deal, DealStage } from '@/lib/types';
 import { useRegion } from '@/lib/context';
-import { useAuth } from '@/lib/context';
-import { convertCurrency } from '@/lib/currency';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import { motion } from 'framer-motion';
@@ -19,29 +17,12 @@ interface KanbanColumnProps {
 
 export default function KanbanColumn({ stageConfig, deals, onCloseDeal }: KanbanColumnProps) {
   const { formatMoneyCompact, formatMoney, formatRegionDate } = useRegion();
-  const { user } = useAuth();
-  const userCurrency = user?.currency || 'USD';
-  
-  console.log('KanbanColumn - User currency:', userCurrency);
-  console.log('KanbanColumn - Deals:', deals);
-  
-  // Group deals by currency for the total display (using user's preferred currency)
-  const currencyGroups = deals.reduce((acc, deal) => {
-    console.log('Deal:', deal.id, 'value:', deal.value, 'baseCurrency:', deal.baseCurrency);
-    // Convert deal value from base currency to user's preferred currency
-    const convertedValue = convertCurrency(deal.value, deal.baseCurrency, userCurrency);
-    acc[userCurrency] = (acc[userCurrency] || 0) + convertedValue;
-    return acc;
-  }, {} as Record<string, number>);
 
-  const currencies = Object.keys(currencyGroups);
-  const hasMultipleCurrencies = currencies.length > 1;
+  const totalValue = deals.reduce((acc, deal) => acc + deal.value, 0);
 
-  // Format the total value display
   const formatTotalValue = () => {
     if (deals.length === 0) return 'No deals';
-    const totalValue = currencyGroups[userCurrency] || 0;
-    return formatMoneyCompact(totalValue, userCurrency);
+    return formatMoneyCompact(totalValue);
   };
 
   return (
@@ -88,7 +69,7 @@ export default function KanbanColumn({ stageConfig, deals, onCloseDeal }: Kanban
                   <div className="flex items-center justify-between pt-2 border-t border-border">
                     <div>
                       <p className="font-semibold text-sm text-primary">
-                        {formatMoney(convertCurrency(deal.value, deal.baseCurrency, userCurrency), userCurrency)}
+                        {formatMoney(deal.value)}
                       </p>
                     </div>
                     <Badge variant={deal.priority === 'high' ? 'error' : deal.priority === 'medium' ? 'warning' : 'info'} size="sm">

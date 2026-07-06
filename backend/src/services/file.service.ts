@@ -94,6 +94,26 @@ export class FileService {
     return path.join(UPLOADS_DIR, entry.organizationId, ...parts, entry.name);
   }
 
+  static async createFolder(organizationId: string, uploadedById: string, folderPath: string) {
+    await this.ensureUploadsDir();
+    const normalized = normalizeFolder(folderPath);
+    const dir = path.join(UPLOADS_DIR, organizationId, ...normalized.split('/').filter(Boolean));
+    await fs.mkdir(dir, { recursive: true });
+    const markerName = `.folder-${Date.now()}`;
+    await prisma.fileEntry.create({
+      data: {
+        organizationId,
+        uploadedById,
+        name: markerName,
+        originalName: '.folder',
+        mimeType: 'inode/directory',
+        size: 0,
+        folder: normalized,
+      },
+    });
+    return { folder: normalized };
+  }
+
   static async getFolders(organizationId: string) {
     const entries = await prisma.fileEntry.findMany({
       where: { organizationId },

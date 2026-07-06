@@ -95,7 +95,7 @@ async function createDeal(token: string, title: string) {
   const res = await request(app)
     .post('/api/deals')
     .set('Authorization', `Bearer ${token}`)
-    .send({ title, value: 50000, currency: 'USD' });
+    .send({ title, value: 50000 });
 
   if (res.status !== 201) {
     throw new Error(

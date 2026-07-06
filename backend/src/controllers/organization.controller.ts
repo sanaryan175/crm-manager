@@ -13,7 +13,7 @@ export class OrganizationController {
 
   static async updateOrganization(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const org = await OrganizationService.updateOrganization(req.user!.organizationId, req.body);
+      const org = await OrganizationService.updateOrganization(req.user!.organizationId, req.body, req.user!.roleName);
       sendSuccess(res, org, 'Organization updated successfully');
     } catch (error) { next(error); }
   }

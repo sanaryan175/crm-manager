@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   User, Lock, Building2, Bell, Users, Mail,
-  Plus, Trash2, Shield, Crown, ChevronDown, X, Clock, SlidersHorizontal,
+  Plus, Trash2, Shield, Crown, ChevronDown, X, Clock, SlidersHorizontal, AlertCircle,
 } from 'lucide-react';
 import Card, { CardHeader } from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
@@ -58,7 +58,8 @@ function InviteModal({
       setRoleId('');
       onClose();
     } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to send invitation' });
+      const msg = err.message || 'Failed to send invitation';
+      addToast({ type: 'error', message: msg });
     } finally {
       setIsSubmitting(false);
     }
@@ -173,9 +174,11 @@ function EditProfileForm() {
 function OrgEditForm({
   org,
   onSave,
+  userRole,
 }: {
   org: any;
   onSave: (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string; phone?: string; address?: string }) => Promise<void>;
+  userRole?: string;
 }) {
   const { addToast } = useUI();
   const [name,        setName]        = useState(org?.name ?? '');
@@ -214,10 +217,19 @@ function OrgEditForm({
           <input className={inp} value={country} onChange={e => setCountry(e.target.value)} placeholder="US" />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Currency</label>
-          <select className={inp} value={currency} onChange={e => setCurrency(e.target.value)}>
-            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
-          </select>
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Base Currency</label>
+          {userRole === 'owner' || userRole === 'admin' ? (
+            <select className={inp} value={currency} onChange={e => setCurrency(e.target.value)}>
+              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
+            </select>
+          ) : (
+            <div className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground/60">
+              {currency}
+            </div>
+          )}
+          {currency !== org?.currency && (userRole === 'owner' || userRole === 'admin') && (
+            <p className="text-xs text-amber-500">Warning: Cannot change currency after deals exist.</p>
+          )}
         </div>
       </div>
       <div className="space-y-1.5">
@@ -330,7 +342,7 @@ export default function SettingsPage() {
   const [prefTimezone,   setPrefTimezone]   = useState('UTC');
   const [prefDateFormat, setPrefDateFormat] = useState('MM/DD/YYYY');
   const [prefTimeFormat, setPrefTimeFormat] = useState('12h');
-  const [prefCurrency,   setPrefCurrency]   = useState('USD');
+
 
   useEffect(() => {
     setPrefTheme(localStorage.getItem('pref_theme')      ?? 'system');
@@ -338,7 +350,7 @@ export default function SettingsPage() {
     setPrefTimezone(localStorage.getItem('pref_timezone')   ?? 'UTC');
     setPrefDateFormat(localStorage.getItem('pref_dateFormat') ?? 'MM/DD/YYYY');
     setPrefTimeFormat(localStorage.getItem('pref_timeFormat') ?? '12h');
-    setPrefCurrency(localStorage.getItem('pref_currency')   ?? 'USD');
+
   }, []);
 
   const handleSavePreferences = () => {
@@ -347,7 +359,7 @@ export default function SettingsPage() {
     localStorage.setItem('pref_timezone',   prefTimezone);
     localStorage.setItem('pref_dateFormat', prefDateFormat);
     localStorage.setItem('pref_timeFormat', prefTimeFormat);
-    localStorage.setItem('pref_currency',   prefCurrency);
+
     // Apply theme
     if (prefTheme === 'dark') document.documentElement.classList.add('dark');
     else if (prefTheme === 'light') document.documentElement.classList.remove('dark');
@@ -687,12 +699,13 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* Edit — owner only */}
-          {user?.isOwner && (
+          {/* Edit — owner/admin only */}
+          {(user?.isOwner || myRoleName === 'admin') && (
             <Card>
               <CardHeader title="Edit Organization" description="Update your organization settings" />
               <OrgEditForm
                 org={organization}
+                userRole={myRoleName}
                 onSave={async (updates) => {
                   await updateOrganization(updates);
                   addToast({ type: 'success', message: 'Organization updated.' });
@@ -827,15 +840,11 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Currency */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display Currency</label>
-                <select value={prefCurrency} onChange={(e) => setPrefCurrency(e.target.value)}
-                  className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors">
-                  {CURRENCIES.map(c=>(
-                    <option key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</option>
-                  ))}
-                </select>
+              {/* Currency (org-level) */}
+              <div className="p-4 rounded-lg bg-muted/20 border border-border/40">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Base Currency</p>
+                <p className="mt-1 text-sm text-foreground">{organization?.currency ?? 'USD'}</p>
+                <p className="mt-1 text-xs text-muted-foreground/60">Set at the organization level under Organization settings. Only owners and admins can change it.</p>
               </div>
 
               <button

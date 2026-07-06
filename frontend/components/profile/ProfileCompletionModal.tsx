@@ -8,28 +8,15 @@ import { useUI } from '@/lib/context';
 import { apiFetch } from '@/lib/api';
 
 /**
- * Detects whether the avatar value is an auto-generated initials placeholder.
- * The backend seeds `avatar` as 1–2 uppercase letters (e.g. "SC") when a user
- * is created via invitation acceptance. A real avatar would be a URL or null/undefined.
- */
-const INITIALS_PATTERN = /^[A-Z]{1,2}$/;
-
-function isInitialsAvatar(avatar?: string): boolean {
-  if (!avatar) return true; // no avatar at all — treat as incomplete
-  return INITIALS_PATTERN.test(avatar);
-}
-
-/**
  * ProfileCompletionModal
  *
- * Non-blocking overlay shown to Invited_Users whose profile is still at the
- * auto-generated initials state (Requirements 9.1–9.4).
+ * Non-blocking overlay shown to invited users once (per user, persisted in DB).
  *
  * - Reads user from useAuth — takes no required props.
- * - Detects the initials avatar pattern and shows itself automatically.
- * - Collects: display name (pre-filled), job title (local-only), avatar URL.
- * - On submit: PATCH /auth/me with { name, avatar }.
- * - On skip: dismisses with no API call.
+ * - Shows itself when user.profileCompleted is false.
+ * - Collects: display name (pre-filled), job title, avatar URL.
+ * - On submit: PATCH /auth/me with { name, jobTitle, avatar?, profileCompleted: true }.
+ * - On skip:   PATCH /auth/me with { profileCompleted: true } — never shows again.
  * - Does NOT block dashboard access under any circumstance.
  */
 export default function ProfileCompletionModal() {
@@ -37,7 +24,6 @@ export default function ProfileCompletionModal() {
   const { addToast }    = useUI();
 
   const [isVisible,    setIsVisible]    = useState(false);
-  const [isDismissed,  setIsDismissed]  = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form fields
@@ -47,21 +33,37 @@ export default function ProfileCompletionModal() {
 
   // Determine whether to show the modal
   useEffect(() => {
-    if (!user || isDismissed) return;
+    if (!user) return;
 
     // Owners go through the Setup Wizard instead — don't show this modal
     if (user.isOwner) return;
 
-    // Show only when avatar is still the auto-generated initials placeholder
-    if (isInitialsAvatar(user.avatar)) {
+    // Show only once — profileCompleted is persisted in the database
+    if (!user.profileCompleted) {
       setDisplayName(user.name ?? '');
+      setJobTitle(user.jobTitle ?? '');
       setIsVisible(true);
     }
-  }, [user, isDismissed]);
+  }, [user]);
+
+  const markCompleted = async (payload: Record<string, unknown>) => {
+    setIsSubmitting(true);
+    try {
+      await apiFetch('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ ...payload, profileCompleted: true }),
+      });
+      setIsVisible(false);
+      await refreshUser();
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Something went wrong.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSkip = () => {
-    setIsDismissed(true);
-    setIsVisible(false);
+    markCompleted({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,29 +75,16 @@ export default function ProfileCompletionModal() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const payload: { name: string; avatar?: string } = { name: trimmedName };
-      if (avatarUrl.trim()) {
-        payload.avatar = avatarUrl.trim();
-      }
-
-      await apiFetch('/auth/me', {
-        method: 'PATCH',
-        body:   JSON.stringify(payload),
-      });
-
-      addToast({ type: 'success', message: 'Profile updated successfully!' });
-      setIsDismissed(true);
-      setIsVisible(false);
-
-      // Refresh AuthContext user state so TopNav/Sidebar show updated name immediately
-      await refreshUser();
-    } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to update profile.' });
-    } finally {
-      setIsSubmitting(false);
+    const payload: Record<string, unknown> = {
+      name: trimmedName,
+      jobTitle: jobTitle.trim() || undefined,
+    };
+    if (avatarUrl.trim()) {
+      payload.avatar = avatarUrl.trim();
     }
+
+    await markCompleted(payload);
+    addToast({ type: 'success', message: 'Profile updated successfully!' });
   };
 
   // Derive the avatar preview character(s) to show in the avatar circle
@@ -211,7 +200,7 @@ export default function ProfileCompletionModal() {
                   </div>
                 </div>
 
-                {/* Job Title (local-only — not sent to API, used for display preview) */}
+                {/* Job Title */}
                 <div className="space-y-1.5">
                   <label
                     htmlFor="profile-job-title"
@@ -235,7 +224,7 @@ export default function ProfileCompletionModal() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground/70">
-                    Shown to teammates — stored locally in this session only.
+                    Shown to teammates.
                   </p>
                 </div>
 

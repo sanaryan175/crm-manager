@@ -6,10 +6,9 @@ import { Plus, List, LayoutGridIcon } from 'lucide-react';
 import KanbanBoard from '@/components/deals/kanban-board';
 import Card from '@/components/ui/card';
 import Modal from '@/components/ui/modal';
-import { useUI } from '@/lib/context';
+import { useUI, useRegion } from '@/lib/context';
 import { useDeals, useContacts } from '@/lib/hooks';
 import { DEAL_STAGES, type DealStage, type DealPriority, type DealCloseReason } from '@/lib/types';
-import { CURRENCIES } from '@/lib/regions';
 
 const PRIORITIES: DealPriority[] = ['low', 'medium', 'high'];
 const STAGES = Object.entries(DEAL_STAGES).map(([k, v]) => ({ value: k as DealStage, label: v.label }));
@@ -26,15 +25,16 @@ function DealModal({
 }) {
   const { addToast } = useUI();
   const { contacts } = useContacts();
+  const { baseCurrency } = useRegion();
   const [form, setForm] = useState({
-    title: '', contactId: '', value: '', currency: 'USD',
+    title: '', contactId: '', value: '',
     stage: 'new' as DealStage, priority: 'medium' as DealPriority,
     expectedCloseDate: '', notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isOpen) setForm({ title: '', contactId: '', value: '', currency: 'USD', stage: 'new', priority: 'medium', expectedCloseDate: '', notes: '' });
+    if (isOpen) setForm({ title: '', contactId: '', value: '', stage: 'new', priority: 'medium', expectedCloseDate: '', notes: '' });
   }, [isOpen]);
 
   const set = (k: keyof typeof form, v: string) => setForm(prev => ({ ...prev, [k]: v }));
@@ -51,7 +51,6 @@ function DealModal({
         title: form.title,
         contactId: form.contactId || undefined,
         value: parseFloat(form.value),
-        currency: form.currency,
         stage: form.stage,
         priority: form.priority,
         expectedCloseDate: form.expectedCloseDate || undefined,
@@ -82,9 +81,9 @@ function DealModal({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Currency</label>
-            <select className={inp} value={form.currency} onChange={e => set('currency', e.target.value)}>
-              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>)}
-            </select>
+            <div className="w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground/60">
+              {baseCurrency}
+            </div>
           </div>
         </div>
 

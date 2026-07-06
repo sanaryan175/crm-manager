@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Mail, ChevronDown, CheckCircle, Circle, ArrowRight, X, Sparkles, LayoutDashboard } from 'lucide-react';
+import { UserPlus, Mail, ChevronDown, CheckCircle, Circle, ArrowRight, X, Sparkles, LayoutDashboard, AlertCircle } from 'lucide-react';
 import DashboardMetrics from '@/components/dashboard/metrics';
 import PipelineOverview from '@/components/dashboard/pipeline-overview';
 import RecentActivities from '@/components/dashboard/recent-activities';
@@ -132,7 +132,7 @@ const ROLE_SUBTITLES: Record<string, string> = {
 
 // ─── Dashboard Checklist Widget ────────────────────────────────────────────────
 function OnboardingChecklistWidget() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const router = useRouter();
 
   const [counts, setCounts] = useState({ contacts: -1, deals: -1, activities: -1, invitations: -1 });
@@ -167,10 +167,10 @@ function OnboardingChecklistWidget() {
   if (dismissed || counts.contacts === -1) return null;
 
   const items = [
-    { id: 'invite',   label: 'Invite a team member',        done: counts.invitations > 0, href: '#invite' },
-    { id: 'contact',  label: 'Create your first contact',    done: counts.contacts > 0,    href: '/contacts' },
-    { id: 'deal',     label: 'Create your first deal',       done: counts.deals > 0,       href: '/deals' },
-    { id: 'activity', label: 'Schedule your first activity', done: counts.activities > 0,  href: '/activities' },
+    ...(hasPermission('user.invite') ? [{ id: 'invite', label: 'Invite a team member', done: counts.invitations > 0, href: '#invite' as const }] : []),
+    { id: 'contact',  label: 'Create your first contact',    done: counts.contacts > 0,    href: '/contacts' as const },
+    { id: 'deal',     label: 'Create your first deal',       done: counts.deals > 0,       href: '/deals' as const },
+    { id: 'activity', label: 'Schedule your first activity', done: counts.activities > 0,  href: '/activities' as const },
   ];
 
   const allDone = items.every((i) => i.done);

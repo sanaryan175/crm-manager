@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, Download, X, User } from 'lucide-react';
-import { useContacts } from '@/lib/hooks';
+import { Plus, Search, Filter, Download, X, User, Mail, Phone, Building, Briefcase, ChevronDown } from 'lucide-react';
+import Badge from '@/components/ui/badge';
+import { useContacts, useTeamMembers, triggerRefresh } from '@/lib/hooks';
+import { apiFetch } from '@/lib/api';
+import * as XLSX from 'xlsx';
 import ContactsList from '@/components/contacts/contacts-list';
 import Card from '@/components/ui/card';
 import Modal from '@/components/ui/modal';
-import { useFilters, useUI } from '@/lib/context';
+import { useFilters, useUI, useAuth } from '@/lib/context';
 import type { Contact, ContactSource } from '@/lib/types';
 
 const SOURCES: ContactSource[] = ['website', 'referral', 'cold_outreach', 'event', 'partner', 'other'];
@@ -140,20 +143,129 @@ function ContactModal({
   );
 }
 
+// ─── Contact Detail Modal ──────────────────────────────────────────────────────
+function ContactDetailModal({
+  contact,
+  isOpen,
+  onClose,
+}: {
+  contact: Contact | null;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!contact) return null;
+  const assignedUser = typeof contact.assignedTo === 'object' && contact.assignedTo ? contact.assignedTo as any : null;
+
+  const rows = [
+    { icon: User, label: 'Name', value: `${contact.firstName} ${contact.lastName}` },
+    { icon: Mail, label: 'Email', value: contact.email },
+    { icon: Phone, label: 'Phone', value: contact.phone || '—' },
+    { icon: Building, label: 'Company', value: contact.company || '—' },
+    { icon: Briefcase, label: 'Job Title', value: contact.jobTitle || '—' },
+    { icon: User, label: 'Assigned To', value: assignedUser?.name || '' },
+  ];
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Contact Details" size="md">
+      <div className="space-y-4">
+        {rows.map((r) => {
+          const Icon = r.icon;
+          const isAssigneeRow = r.label === 'Assigned To';
+          return (
+            <div key={r.label} className="flex items-start gap-3">
+              <Icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{r.label}</p>
+                {isAssigneeRow && !r.value ? (
+                  <p className="text-sm text-muted-foreground italic">Unassigned</p>
+                ) : (
+                  <p className="text-sm font-medium text-foreground">{r.value}</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div className="flex items-start gap-3">
+          <Filter className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Source</p>
+            <p className="text-sm font-medium text-foreground capitalize">{contact.source.replace('_', ' ')}</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <User className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Status</p>
+            <Badge variant="default" size="sm" className="mt-1">{contact.status}</Badge>
+          </div>
+        </div>
+        {contact.notes && (
+          <div className="flex items-start gap-3">
+            <X className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Notes</p>
+              <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{contact.notes}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Contacts Page ────────────────────────────────────────────────────────────
 export default function ContactsPage() {
-  const { searchQuery, setSearchQuery, filters } = useFilters();
+  const [searchQuery, setSearchQuery] = useState('');
+  const { filters, setFilter } = useFilters();
   const { addToast } = useUI();
+  const { user } = useAuth();
+  const { members } = useTeamMembers();
   const { contacts, isLoading, error, createContact, updateContact, deleteContact } = useContacts({
     status: filters.status,
     source: filters.source,
-    search: searchQuery,
   });
+
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return contacts;
+    const q = searchQuery.toLowerCase();
+    return contacts.filter((c) =>
+      c.firstName.toLowerCase().includes(q) ||
+      c.lastName.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q) ||
+      (c.company || '').toLowerCase().includes(q) ||
+      (c.jobTitle || '').toLowerCase().includes(q) ||
+      (c.phone || '').includes(q)
+    );
+  }, [contacts, searchQuery]);
 
   const [modalOpen,    setModalOpen]    = useState(false);
   const [editContact,  setEditContact]  = useState<Contact | null>(null);
+  const [detailContact, setDetailContact] = useState<Contact | null>(null);
+  const [filterOpen,   setFilterOpen]   = useState(false);
+  const [assignContactId, setAssignContactId] = useState<string | null>(null);
   const [deleteId,     setDeleteId]     = useState<string | null>(null);
   const [isDeleting,   setIsDeleting]   = useState(false);
+
+  const canAssign = user && (user.isOwner || user.role?.name === 'admin' || user.role?.name === 'sales_manager');
+
+  const handleExport = () => {
+    const data = filteredContacts.map((c) => ({
+      'First Name': c.firstName,
+      'Last Name': c.lastName,
+      Email: c.email,
+      Phone: c.phone || '',
+      Company: c.company || '',
+      'Job Title': c.jobTitle || '',
+      Source: c.source.replace('_', ' '),
+      Status: c.status,
+      Tags: c.tags.join(', '),
+      Notes: c.notes || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Contacts');
+    XLSX.writeFile(wb, 'contacts.xlsx');
+  };
 
   useEffect(() => {
     if (error) addToast({ type: 'error', message: 'Failed to load contacts. Please try again.' });
@@ -219,11 +331,62 @@ export default function ContactsPage() {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent/10 transition-colors text-sm font-medium">
-            <Filter className="w-4 h-4" /> Filter
+        <div className="flex items-center gap-2 relative">
+          <button
+            onClick={() => setFilterOpen(!filterOpen)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent/10 transition-colors text-sm font-medium"
+          >
+            <Filter className="w-4 h-4" /> Filter <ChevronDown className="w-3 h-3" />
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent/10 transition-colors text-sm font-medium">
+          {filterOpen && (
+            <div className="absolute top-full right-0 mt-2 w-56 bg-background border border-border rounded-xl shadow-xl z-50 p-3 space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Source</p>
+                <div className="flex flex-wrap gap-1">
+                  {SOURCES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFilter('source', filters.source === s ? undefined : s)}
+                      className={`text-xs px-2 py-1 rounded-md transition-colors ${
+                        filters.source === s
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted/40 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {SOURCE_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Status</p>
+                <div className="flex flex-wrap gap-1">
+                  {['active', 'inactive', 'lead'].map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => setFilter('status', filters.status === st ? undefined : st)}
+                      className={`text-xs px-2 py-1 rounded-md capitalize transition-colors ${
+                        filters.status === st
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted/40 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {(filters.source || filters.status) && (
+                <button
+                  onClick={() => { setFilter('source', undefined); setFilter('status', undefined); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+          <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent/10 transition-colors text-sm font-medium">
             <Download className="w-4 h-4" /> Export
           </button>
         </div>
@@ -238,7 +401,13 @@ export default function ContactsPage() {
         </div>
       ) : (
         <ContactsList
-          contacts={contacts}
+          contacts={filteredContacts}
+          user={user}
+          members={members}
+          canAssign={!!canAssign}
+          assignContactId={assignContactId}
+          onAssign={(id) => setAssignContactId(assignContactId === id ? null : id)}
+          onDetail={(c) => setDetailContact(c)}
           onEdit={(c) => { setEditContact(c); setModalOpen(true); }}
           onDelete={(id) => setDeleteId(id)}
         />
@@ -251,6 +420,9 @@ export default function ContactsPage() {
         contact={editContact}
         onSave={editContact ? handleUpdate : handleCreate}
       />
+
+      {/* Detail Modal */}
+      <ContactDetailModal contact={detailContact} isOpen={!!detailContact} onClose={() => setDetailContact(null)} />
 
       {/* Delete Confirm Modal */}
       <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Delete Contact" size="sm">

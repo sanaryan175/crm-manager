@@ -30,14 +30,13 @@ const THEMES = [
 
 export default function UserOnboardingPage() {
   const router = useRouter();
-  const { user, isLoading, refreshUser } = useAuth();
+  const { user, isLoading, setUser } = useAuth();
   const { addToast } = useUI();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preferences, setPreferences] = useState({
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     language: 'en',
-    currency: 'USD',
     emailNotifications: true,
     taskReminders: true,
     meetingReminders: true,
@@ -48,8 +47,26 @@ export default function UserOnboardingPage() {
     theme: 'system',
   });
 
-  const setPref = (key: keyof typeof preferences, value: any) =>
+  const setPref = (key: keyof typeof preferences, value: any) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
+    if (key === 'theme') applyTheme(value);
+  };
+
+  const applyTheme = (theme: string) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('pref_theme', theme);
+    if (theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  };
 
   // Guard: only authenticated non-owners with incomplete onboarding can be here
   useEffect(() => {
@@ -61,21 +78,21 @@ export default function UserOnboardingPage() {
     if (user.onboardingComplete) {
       router.replace('/dashboard');
     }
+    // Apply saved theme on mount
+    const saved = localStorage.getItem('pref_theme');
+    if (saved && saved !== 'system') applyTheme(saved);
   }, [user, isLoading, router]);
 
   const handleCompleteOnboarding = async () => {
     setIsSubmitting(true);
     try {
-      await apiFetch('/auth/complete-onboarding', {
+      const data = await apiFetch('/auth/complete-onboarding', {
         method: 'POST',
         body: JSON.stringify(preferences),
       });
-      // Persist theme preference to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('pref_theme', preferences.theme);
-      }
+      applyTheme(preferences.theme);
       addToast({ type: 'success', message: 'Welcome to the team! You\'re all set.' });
-      await refreshUser();
+      setUser(data);
       router.replace('/dashboard');
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to complete onboarding. Please try again.' });
@@ -189,26 +206,7 @@ export default function UserOnboardingPage() {
               </div>
             </div>
 
-            {/* Currency */}
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">
-              <Building2 className="w-5 h-5 text-primary flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Currency</p>
-                <select
-                  value={preferences.currency}
-                  onChange={(e) => setPreferences({ ...preferences, currency: e.target.value })}
-                  className="mt-1 w-full bg-transparent text-sm text-foreground outline-none"
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="INR">INR (₹)</option>
-                  <option value="JPY">JPY (¥)</option>
-                  <option value="CAD">CAD ($)</option>
-                  <option value="AUD">AUD ($)</option>
-                </select>
-              </div>
-            </div>
+
 
             {/* Job Title */}
             <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30">

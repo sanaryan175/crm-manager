@@ -10,10 +10,6 @@ const ACTIVITY_INCLUDE = {
 };
 
 export class ActivityService {
-  private static canAccess(activity: { createdById: string; assignedToId: string | null }, actorId: string, actorRoleName: string) {
-    return actorRoleName !== 'sales_rep' || activity.createdById === actorId || activity.assignedToId === actorId;
-  }
-
   private static async ensureAssignableUser(organizationId: string, assignedToId?: string | null) {
     if (!assignedToId) return;
     const user = await prisma.user.findFirst({
@@ -67,15 +63,12 @@ export class ActivityService {
 
   static async getActivities(
     organizationId: string,
-    actorId: string,
-    actorRoleName: string,
+    _actorId: string,
+    _actorRoleName: string,
     filters?: { contactId?: string; dealId?: string; type?: ActivityType }
   ) {
     const where: any = { organizationId };
 
-    if (actorRoleName === 'sales_rep') {
-      where.OR = [{ createdById: actorId }, { assignedToId: actorId }];
-    }
     if (filters?.contactId) where.contactId = filters.contactId;
     if (filters?.dealId)    where.dealId    = filters.dealId;
     if (filters?.type)      where.type      = filters.type;
@@ -90,17 +83,14 @@ export class ActivityService {
   static async getActivityById(
     id: string,
     organizationId: string,
-    actorId?: string,
-    actorRoleName?: string
+    _actorId?: string,
+    _actorRoleName?: string
   ) {
     const activity = await prisma.activity.findFirst({
       where: { id, organizationId },
       include: ACTIVITY_INCLUDE,
     });
     if (!activity) throw new NotFoundError('Activity not found');
-    if (actorId && actorRoleName && !this.canAccess(activity, actorId, actorRoleName)) {
-      throw new NotFoundError('Activity not found');
-    }
     return activity;
   }
 

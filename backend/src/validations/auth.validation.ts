@@ -37,10 +37,11 @@ export const loginSchema = z.object({
 
 export const updateProfileSchema = z.object({
   body: z.object({
-    name:     z.string().min(1).optional(),
-    avatar:   z.string().optional(),
-    phone:    z.string().optional().transform(v => v === '' ? undefined : v),
-    jobTitle: z.string().optional().transform(v => v === '' ? undefined : v),
+    name:             z.string().min(1).optional(),
+    avatar:           z.string().optional(),
+    phone:            z.string().optional().transform(v => v === '' ? undefined : v),
+    jobTitle:         z.string().optional().transform(v => v === '' ? undefined : v),
+    profileCompleted: z.boolean().optional(),
   }),
 });
 
@@ -48,7 +49,6 @@ export const completeOnboardingSchema = z.object({
   body: z.object({
     timezone:            z.string().optional(),
     language:            z.string().optional(),
-    currency:            z.string().optional(),
     phone:               z.string().optional().transform(v => v === '' ? undefined : v),
     jobTitle:            z.string().optional().transform(v => v === '' ? undefined : v),
     dateFormat:          z.string().optional(),

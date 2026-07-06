@@ -39,7 +39,7 @@ export class InvitationService {
       where: { email: data.email.toLowerCase(), organizationId: inviter.organizationId },
     });
     if (existing) {
-      throw new BadRequestError('A user with this email already exists in your organization');
+      throw new BadRequestError('User already exists');
     }
 
     // Expire any previous pending invites for this email+org

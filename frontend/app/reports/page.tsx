@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, Download, Trash2, FileText, File, FileSpreadsheet, FileImage, FolderPlus, Loader2, X } from 'lucide-react';
+import { Upload, Download, Trash2, FileText, File, FileSpreadsheet, FileImage, FolderPlus, Folder, Loader2, X, Search, ChevronRight, Eye } from 'lucide-react';
 import Card from '@/components/ui/card';
 import Modal from '@/components/ui/modal';
+import Badge from '@/components/ui/badge';
 import { apiFetch } from '@/lib/api';
 import { useUI } from '@/lib/context';
 import type { FileEntry, FileStructure } from '@/lib/types';
+
+const CATEGORIES = ['All', 'Finance', 'HR', 'Sales', 'Marketing', 'Legal', 'Operations', 'General'];
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -30,6 +33,96 @@ function FileIcon({ mimeType, className = 'w-5 h-5' }: { mimeType: string; class
   return <File className={`${className} text-muted-foreground`} />;
 }
 
+// ─── Breadcrumb ────────────────────────────────────────────────────────────────
+function Breadcrumb({ path, onNavigate }: { path: string[]; onNavigate: (folder: string) => void }) {
+  const crumbs = path.map((_, i) => ({ label: i === 0 ? 'Reports' : path[i], fullPath: '/' + path.slice(1, i + 1).join('/') }));
+  return (
+    <div className="flex items-center gap-1 text-sm text-muted-foreground flex-wrap">
+      {crumbs.map((cr, i) => (
+        <React.Fragment key={cr.fullPath}>
+          {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />}
+          <button
+            onClick={() => onNavigate(cr.fullPath)}
+            className={`hover:text-foreground transition-colors px-1 py-0.5 rounded ${i === crumbs.length - 1 ? 'text-foreground font-medium' : ''}`}
+          >
+            {cr.label}
+          </button>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+// ─── File Preview Modal ────────────────────────────────────────────────────────
+function FilePreviewModal({ file, isOpen, onClose, onDownload, onDelete }: {
+  file: FileEntry | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onDownload: (f: FileEntry) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (!file) return null;
+  const isImage = file.mimeType.startsWith('image/');
+  const isText = file.mimeType.startsWith('text/') || file.mimeType === 'application/json';
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="File Details" size="lg">
+      <div className="space-y-4">
+        <div className="flex items-start gap-4">
+          <FileIcon mimeType={file.mimeType} className="w-10 h-10 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground">{file.originalName}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatSize(file.size)}</p>
+          </div>
+        </div>
+
+        {isImage && (
+          <div className="rounded-lg overflow-hidden border border-border bg-muted/20">
+            <img
+              src={`${API_URL}/files/${file.id}/download`}
+              alt={file.originalName}
+              className="max-h-80 mx-auto object-contain"
+            />
+          </div>
+        )}
+
+        {isText && (
+          <div className="rounded-lg border border-border bg-muted/20 p-4 max-h-60 overflow-y-auto">
+            <p className="text-xs text-muted-foreground italic">Preview available after download</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {[
+            { label: 'Size', value: formatSize(file.size) },
+            { label: 'Type', value: file.mimeType },
+            { label: 'Uploaded by', value: file.uploadedBy?.name || '—' },
+            { label: 'Folder', value: file.folder === '/' ? 'Root' : file.folder },
+            { label: 'Created', value: formatDate(file.createdAt) },
+            { label: 'Modified', value: formatDate(file.updatedAt) },
+          ].map(r => (
+            <div key={r.label}>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{r.label}</p>
+              <p className="text-sm text-foreground font-medium">{r.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button onClick={() => onDownload(file)} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+            <Download className="w-4 h-4" /> Download
+          </button>
+          <button onClick={() => onDelete(file.id)} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors">
+            <Trash2 className="w-4 h-4" /> Delete
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Reports Page ──────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const { addToast } = useUI();
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -41,7 +134,9 @@ export default function ReportsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [newFolderModal, setNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFiles = useCallback(async () => {
@@ -60,13 +155,44 @@ export default function ReportsPage() {
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
-  const filteredFiles = currentFolder === '/'
-    ? files
-    : files.filter(f => f.folder === currentFolder);
+  // Breadcrumb path
+  const breadcrumbPath = useMemo(() => {
+    const parts = currentFolder.split('/').filter(Boolean);
+    return ['', ...parts];
+  }, [currentFolder]);
+
+  // Folder subfolders for the current path
+  const subfolders = useMemo(() => {
+    const prefix = currentFolder === '/' ? '' : currentFolder;
+    return folders.filter(f => {
+      if (f === currentFolder || f === '/') return false;
+      const parent = f.substring(0, f.lastIndexOf('/')) || '/';
+      return parent === currentFolder;
+    });
+  }, [folders, currentFolder]);
+
+  // Filtered files
+  const filteredFiles = useMemo(() => {
+    let list = files.filter(f => f.folder === currentFolder && f.mimeType !== 'inode/directory');
+    if (activeCategory !== 'All') {
+      list = list.filter(f => f.originalName.toLowerCase().includes(activeCategory.toLowerCase()) || (f as any).category === activeCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(f =>
+        f.originalName.toLowerCase().includes(q) ||
+        f.mimeType.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [files, currentFolder, activeCategory, searchQuery]);
 
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList?.length) return;
     setIsUploading(true);
+    const targetFolder = currentFolder;
+    let uploaded = 0;
+    let lastError: string | null = null;
     try {
       const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
       const token = localStorage.getItem('auth_token');
@@ -74,8 +200,7 @@ export default function ReportsPage() {
       for (let i = 0; i < fileList.length; i++) {
         const formData = new FormData();
         formData.append('file', fileList[i]);
-        formData.append('folder', currentFolder);
-
+        formData.append('folder', targetFolder);
         const res = await fetch(`${API_URL}/files/upload`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -83,11 +208,17 @@ export default function ReportsPage() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ message: 'Upload failed' }));
-          throw new Error(err.message);
+          lastError = err.message;
+        } else {
+          uploaded++;
         }
       }
-      addToast({ type: 'success', message: `Uploaded ${fileList.length} file(s)` });
-      fetchFiles();
+      if (uploaded > 0) {
+        addToast({ type: 'success', message: `Uploaded ${uploaded} file(s) to ${targetFolder === '/' ? 'Root' : targetFolder}` });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        fetchFiles();
+      }
+      if (lastError) addToast({ type: 'error', message: lastError });
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Upload failed' });
     } finally {
@@ -138,11 +269,23 @@ export default function ReportsPage() {
   const handleCreateFolder = async () => {
     const name = newFolderName.trim().replace(/\\/g, '/');
     if (!name) return;
-    const folderPath = currentFolder === '/' ? `/${name}` : `${currentFolder}/${name}`;
-    setFolders(prev => prev.includes(folderPath) ? prev : [...prev, folderPath].sort());
-    setNewFolderModal(false);
-    setNewFolderName('');
-    addToast({ type: 'success', message: `Folder "${name}" created` });
+    try {
+      await apiFetch('/files/folders', {
+        method: 'POST',
+        body: JSON.stringify({ name, parent: currentFolder }),
+      });
+      setNewFolderModal(false);
+      setNewFolderName('');
+      addToast({ type: 'success', message: `Folder "${name}" created` });
+      fetchFiles();
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to create folder' });
+    }
+  };
+
+  const navigateFolder = (folder: string) => {
+    setCurrentFolder(folder);
+    setSearchQuery('');
   };
 
   const inp = 'w-full bg-muted/40 border border-border/40 rounded-lg px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/60 transition-colors';
@@ -163,13 +306,7 @@ export default function ReportsPage() {
             <FolderPlus className="w-4 h-4" />
             New Folder
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={e => handleUpload(e.target.files)}
-            className="hidden"
-          />
+          <input ref={fileInputRef} type="file" multiple onChange={e => handleUpload(e.target.files)} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
@@ -181,22 +318,71 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Folder Navigation */}
+      {/* Breadcrumb */}
+      <Breadcrumb path={breadcrumbPath} onNavigate={navigateFolder} />
+
+      {/* Category Tabs */}
       <div className="flex items-center gap-2 flex-wrap">
-        {folders.map(folder => (
+        {CATEGORIES.map(cat => (
           <button
-            key={folder}
-            onClick={() => setCurrentFolder(folder)}
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              currentFolder === folder
+              activeCategory === cat
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
             }`}
           >
-            {folder === '/' ? 'All Files' : folder.replace(/^\//, '').replace(/\//g, ' / ')}
+            {cat}
           </button>
         ))}
       </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 max-w-sm">
+        <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <input
+          type="text"
+          placeholder="Search files..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="flex-1 bg-transparent outline-none text-sm"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Subfolder cards */}
+      {subfolders.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {subfolders.map(sf => {
+            const folderName = sf.split('/').pop() || sf;
+            const fileCount = files.filter(f => f.folder === sf && f.mimeType !== 'inode/directory').length;
+            return (
+              <button
+                key={sf}
+                onClick={() => navigateFolder(sf)}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-accent/5 transition-all group"
+              >
+                <Folder className="w-10 h-10 text-amber-500 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-medium text-foreground text-center truncate w-full">{folderName}</span>
+                <span className="text-xs text-muted-foreground">{fileCount} file{fileCount !== 1 ? 's' : ''}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Current folder indicator */}
+      {currentFolder !== '/' && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/30 border border-border/50 text-sm text-muted-foreground">
+          <Folder className="w-4 h-4 text-amber-500" />
+          Uploading to: <span className="font-medium text-foreground">{currentFolder}</span>
+        </div>
+      )}
 
       {/* Drop Zone */}
       <div
@@ -211,49 +397,54 @@ export default function ReportsPage() {
       >
         <Upload className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">
-          {dragOver ? 'Drop files here' : 'Drag & drop files here, or click the Upload button'}
+          {dragOver ? 'Drop files here' : `Drag & drop files to ${currentFolder === '/' ? 'Root' : currentFolder}, or click the Upload button`}
         </p>
         <p className="text-xs text-muted-foreground/50 mt-1">PDF, Word, Excel, Images, and more</p>
       </div>
 
-      {/* Files Grid/List */}
+      {/* Files List */}
       {isLoading ? (
         <div className="flex justify-center items-center py-12">
           <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
-      ) : filteredFiles.length === 0 ? (
+      ) : filteredFiles.length === 0 && subfolders.length === 0 ? (
         <Card className="text-center py-12">
           <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">No files in this folder</p>
           <p className="text-xs text-muted-foreground/50 mt-1">Upload your first file to get started</p>
         </Card>
-      ) : (
+      ) : filteredFiles.length > 0 ? (
         <div className="space-y-1">
           {filteredFiles.map(file => (
             <div
               key={file.id}
-              className="flex items-center gap-4 px-4 py-3 rounded-lg bg-card border border-border hover:bg-muted/20 transition-colors group"
+              className="flex items-center gap-4 px-4 py-3 rounded-lg bg-card border border-border hover:bg-muted/20 transition-colors group cursor-pointer"
+              onClick={() => setPreviewFile(file)}
             >
               <FileIcon mimeType={file.mimeType} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{file.originalName}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatSize(file.size)} &middot; {file.uploadedBy?.name} &middot; {formatDate(file.createdAt)}
-                  {file.folder !== '/' && file.folder !== currentFolder && (
-                    <> &middot; <span className="text-primary">{file.folder}</span></>
-                  )}
                 </p>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => handleDownload(file)}
+                  onClick={e => { e.stopPropagation(); setPreviewFile(file); }}
+                  className="p-2 rounded-lg hover:bg-accent/10 text-muted-foreground hover:text-foreground transition-colors"
+                  title="Preview"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); handleDownload(file); }}
                   className="p-2 rounded-lg hover:bg-accent/10 text-muted-foreground hover:text-foreground transition-colors"
                   title="Download"
                 >
                   <Download className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setDeleteId(file.id)}
+                  onClick={e => { e.stopPropagation(); setDeleteId(file.id); }}
                   className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                   title="Delete"
                 >
@@ -263,7 +454,16 @@ export default function ReportsPage() {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        file={previewFile}
+        isOpen={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        onDownload={handleDownload}
+        onDelete={(id) => { setPreviewFile(null); setDeleteId(id); }}
+      />
 
       {/* New Folder Modal */}
       <Modal isOpen={newFolderModal} onClose={() => setNewFolderModal(false)} title="Create Folder" size="sm">
@@ -276,6 +476,7 @@ export default function ReportsPage() {
               onChange={e => setNewFolderName(e.target.value)}
               placeholder="e.g. Financial Reports"
               autoFocus
+              maxLength={100}
               onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); }}
             />
           </div>

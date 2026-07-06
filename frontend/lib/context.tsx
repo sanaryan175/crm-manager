@@ -13,6 +13,7 @@ interface AuthContextType {
   logout:      () => void;
   hasPermission: (permission: string) => boolean;
   refreshUser: () => Promise<void>;
+  setUser:     (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -150,7 +151,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, permissions, isLoading, login, register, logout, hasPermission, refreshUser }}>
+      <AuthContext.Provider value={{ user, permissions, isLoading, login, register, logout, hasPermission, refreshUser, setUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -263,10 +264,10 @@ export const useFilters = () => {
 interface RegionContextType {
   organization: Organization | null;
   isLoading: boolean;
-  formatMoney: (value: number, overrideCurrency?: string) => string;
-  formatMoneyCompact: (value: number, overrideCurrency?: string) => string;
+  formatMoney: (value: number) => string;
+  formatMoneyCompact: (value: number) => string;
   formatRegionDate: (date: Date | string, options?: Intl.DateTimeFormatOptions) => string;
-  defaultCurrency: string;
+  baseCurrency: string;
   country: string;
   refreshOrganization: () => void;
 }
@@ -292,19 +293,19 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     fetchOrg();
   }, [fetchOrg]);
 
-  const defaultCurrency = organization?.currency ?? 'USD';
+  const baseCurrency = organization?.currency ?? 'USD';
   const country = organization?.country ?? 'US';
 
   const formatMoney = useCallback(
-    (value: number, overrideCurrency?: string) =>
-      formatCurrency(value, overrideCurrency ?? defaultCurrency),
-    [defaultCurrency]
+    (value: number) =>
+      formatCurrency(value, baseCurrency),
+    [baseCurrency]
   );
 
   const formatMoneyCompact = useCallback(
-    (value: number, overrideCurrency?: string) =>
-      formatCurrency(value, overrideCurrency ?? defaultCurrency, { compact: true }),
-    [defaultCurrency]
+    (value: number) =>
+      formatCurrency(value, baseCurrency, { compact: true }),
+    [baseCurrency]
   );
 
   const formatRegionDate = useCallback(
@@ -321,7 +322,7 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         formatMoney,
         formatMoneyCompact,
         formatRegionDate,
-        defaultCurrency,
+        baseCurrency,
         country,
         refreshOrganization: fetchOrg,
       }}

@@ -78,6 +78,17 @@ export class FileController {
     } catch (error) { next(error); }
   }
 
+  static async createFolder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { name } = req.body;
+      const parent = (req.body.parent as string) || '/';
+      if (!name || !name.trim()) throw new BadRequestError('Folder name is required');
+      const folderPath = parent === '/' ? `/${name.trim()}` : `${parent}/${name.trim()}`;
+      const result = await FileService.createFolder(req.user!.organizationId, req.user!.userId, folderPath);
+      sendSuccess(res, result, 'Folder created successfully', 201);
+    } catch (error) { next(error); }
+  }
+
   static async folders(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const folders = await FileService.getFolders(req.user!.organizationId);

@@ -6,7 +6,6 @@ export const createDealSchema = z.object({
     contactId: z.string().nullable().optional(),
     company: z.string().nullable().optional(),
     value: z.number().nonnegative('Value must be positive'),
-    currency: z.string().length(3, 'Currency must be a 3-letter ISO code').optional(),
     stage: z.enum(['new', 'contacted', 'demo_scheduled', 'proposal_sent', 'negotiation', 'closed_won', 'closed_lost']).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
     expectedCloseDate: z.coerce.date().nullable().optional(),

@@ -5,8 +5,6 @@ import { motion } from 'framer-motion';
 import { Users, TrendingUp, DollarSign, Target, ArrowUpRight } from 'lucide-react';
 import { useDashboardMetrics, useDeals } from '@/lib/hooks';
 import { useRegion } from '@/lib/context';
-import { useAuth } from '@/lib/context';
-import { convertCurrency } from '@/lib/currency';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 
@@ -14,34 +12,30 @@ export default function DashboardMetrics() {
   const { metrics, isLoading, error } = useDashboardMetrics();
   const { deals } = useDeals();
   const { formatMoneyCompact } = useRegion();
-  const { user } = useAuth();
-  const userCurrency = user?.currency || 'USD';
 
-  // Calculate pipeline value in user's preferred currency
+  // Calculate pipeline value
   const pipelineValue = useMemo(() => {
     let total = 0;
     deals.forEach((deal: any) => {
       if (deal.stage !== 'closed_lost') {
-        const convertedValue = convertCurrency(deal.value, deal.baseCurrency, userCurrency);
-        total += convertedValue;
+        total += deal.value;
       }
     });
     return total;
-  }, [deals, userCurrency]);
+  }, [deals]);
 
-  // Calculate closed won this month in user's preferred currency
+  // Calculate closed won this month
   const closedWonThisMonth = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     let total = 0;
     deals.forEach((deal: any) => {
       if (deal.stage === 'closed_won' && new Date(deal.closedAt || '') >= startOfMonth) {
-        const convertedValue = convertCurrency(deal.value, deal.baseCurrency, userCurrency);
-        total += convertedValue;
+        total += deal.value;
       }
     });
     return total;
-  }, [deals, userCurrency]);
+  }, [deals]);
 
   if (error) {
     return (
@@ -71,7 +65,7 @@ export default function DashboardMetrics() {
     },
     {
       label: 'Pipeline Value',
-      value: formatMoneyCompact(pipelineValue, userCurrency),
+      value: formatMoneyCompact(pipelineValue),
       icon: DollarSign,
       color: 'from-green-500 to-emerald-500',
       trend: '+28%',
@@ -85,7 +79,7 @@ export default function DashboardMetrics() {
     },
     {
       label: 'Closed This Month',
-      value: formatMoneyCompact(closedWonThisMonth, userCurrency),
+      value: formatMoneyCompact(closedWonThisMonth),
       icon: TrendingUp,
       color: 'from-orange-500 to-red-500',
       trend: '+15%',

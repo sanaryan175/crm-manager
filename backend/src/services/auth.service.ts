@@ -50,7 +50,6 @@ export class AuthService {
   static async completeOnboarding(userId: string, organizationId: string, preferences?: {
     timezone?: string;
     language?: string;
-    currency?: string;
     phone?: string;
     jobTitle?: string;
     emailNotifications?: boolean;
@@ -68,7 +67,6 @@ export class AuthService {
         onboardingComplete: true,
         ...(preferences?.timezone       && { timezone: preferences.timezone }),
         ...(preferences?.language       && { language: preferences.language }),
-        ...(preferences?.currency       && { currency: preferences.currency }),
         ...(preferences?.phone          && { phone: preferences.phone }),
         ...(preferences?.jobTitle       && { jobTitle: preferences.jobTitle }),
         ...(preferences?.dateFormat     && { dateFormat: preferences.dateFormat }),
@@ -77,7 +75,10 @@ export class AuthService {
         ...(preferences?.taskReminders       !== undefined && { taskReminders:       preferences.taskReminders }),
         ...(preferences?.meetingReminders    !== undefined && { meetingReminders:    preferences.meetingReminders }),
       },
-      include: { role: { select: { id: true, name: true, displayName: true } } },
+      include: {
+        role: { select: { id: true, name: true, displayName: true } },
+        organization: { select: { id: true, name: true, country: true, currency: true, setupComplete: true } },
+      },
     });
 
     const { password: _pw, ...safe } = updated;
@@ -102,7 +103,7 @@ export class AuthService {
   static async updateProfile(
     userId:         string,
     organizationId: string,
-    data: { name?: string; avatar?: string; phone?: string; jobTitle?: string }
+    data: { name?: string; avatar?: string; phone?: string; jobTitle?: string; profileCompleted?: boolean }
   ) {
     const user = await prisma.user.findFirst({
       where: { id: userId, organizationId },
@@ -111,8 +112,17 @@ export class AuthService {
 
     const updated = await prisma.user.update({
       where:   { id: userId },
-      data,
-      include: { role: { select: { id: true, name: true, displayName: true } } },
+      data: {
+        name: data.name,
+        avatar: data.avatar,
+        phone: data.phone,
+        jobTitle: data.jobTitle,
+        ...(data.profileCompleted !== undefined && { profileCompleted: data.profileCompleted }),
+      },
+      include: {
+        role: { select: { id: true, name: true, displayName: true } },
+        organization: { select: { id: true, name: true, country: true, currency: true, setupComplete: true } },
+      },
     });
 
     const { password: _pw, ...safe } = updated;

@@ -4,9 +4,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useDeals } from '@/lib/hooks';
 import { DEAL_STAGES, type DealStage } from '@/lib/types';
-import { formatCurrency } from '@/lib/regions';
-import { useAuth } from '@/lib/context';
-import { convertCurrency } from '@/lib/currency';
+import { useRegion } from '@/lib/context';
 import KanbanColumn from './kanban-column';
 import Card from '@/components/ui/card';
 
@@ -16,8 +14,7 @@ interface KanbanBoardProps {
 
 export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
   const { deals, isLoading, error } = useDeals();
-  const { user } = useAuth();
-  const userCurrency = user?.currency || 'USD';
+  const { formatMoney } = useRegion();
 
   const dealsByStage = useMemo(() => {
     const grouped: Record<string, typeof deals> = {};
@@ -78,7 +75,7 @@ export default function KanbanBoard({ onCloseDeal }: KanbanBoardProps) {
             <Card key={deal.id} className="text-sm p-3 border-l-4 border-l-green-500">
               <p className="font-medium text-foreground">{deal.title}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                {formatCurrency(convertCurrency(deal.value, deal.baseCurrency, userCurrency), userCurrency)}
+                {formatMoney(deal.value)}
               </p>
             </Card>
           ))}

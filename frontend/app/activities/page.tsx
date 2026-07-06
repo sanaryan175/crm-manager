@@ -2,13 +2,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, CheckCircle, Trash2, X as XIcon } from 'lucide-react';
-import { useActivities, useContacts } from '@/lib/hooks';
+import { Plus, CheckCircle, Trash2, X as XIcon, Calendar, User as UserIcon, Clock, FileText, ChevronDown } from 'lucide-react';
+import { useActivities, useContacts, useTeamMembers, triggerRefresh } from '@/lib/hooks';
+import { apiFetch } from '@/lib/api';
 import { ACTIVITY_TYPES, type ActivityType } from '@/lib/types';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import Modal from '@/components/ui/modal';
-import { useFilters, useUI } from '@/lib/context';
+import { useFilters, useUI, useAuth } from '@/lib/context';
 
 // ─── New Activity Modal ───────────────────────────────────────────────────────
 function NewActivityModal({
@@ -124,16 +125,73 @@ function NewActivityModal({
   );
 }
 
+// ─── Activity Detail Modal ────────────────────────────────────────────────────
+function ActivityDetailModal({
+  activity,
+  isOpen,
+  onClose,
+}: {
+  activity: any;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!activity) return null;
+  const config = ACTIVITY_TYPES[activity.type as ActivityType];
+  const contact = activity.contact;
+  const assignee = typeof activity.assignedTo === 'object' && activity.assignedTo ? activity.assignedTo : null;
+
+  const rows = [
+    { icon: FileText, label: 'Subject', value: activity.subject },
+    { icon: Calendar, label: 'Type', value: config?.label ?? activity.type },
+    { icon: UserIcon, label: 'Contact', value: contact ? `${contact.firstName} ${contact.lastName}` : '—' },
+    { icon: UserIcon, label: 'Assigned To', value: assignee ? (assignee as any).name : '—' },
+    { icon: Clock, label: 'Due Date', value: activity.dueDate ? new Date(activity.dueDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
+    { icon: Clock, label: 'Status', value: activity.completed ? 'Completed' : 'Pending' },
+  ];
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Activity Details" size="md">
+      <div className="space-y-4">
+        {rows.map((r) => {
+          const Icon = r.icon;
+          return (
+            <div key={r.label} className="flex items-start gap-3">
+              <Icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{r.label}</p>
+                <p className="text-sm font-medium text-foreground">{r.value}</p>
+              </div>
+            </div>
+          );
+        })}
+        {activity.description && (
+          <div className="flex items-start gap-3">
+            <FileText className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Description</p>
+              <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{activity.description}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Activities Page ──────────────────────────────────────────────────────────
 export default function ActivitiesPage() {
   const { searchQuery, setSearchQuery, filters, setFilter } = useFilters();
+  const { user, hasPermission } = useAuth();
+  const { members } = useTeamMembers();
   const [filterType,  setFilterType]  = useState<string>('');
   const [newOpen,     setNewOpen]     = useState(false);
+  const [detailId,    setDetailId]    = useState<string | null>(null);
+  const [assignId,    setAssignId]    = useState<string | null>(null);
   const [deleteId,    setDeleteId]    = useState<string | null>(null);
   const [isDeleting,  setIsDeleting]  = useState(false);
   const { addToast } = useUI();
 
-  const { activities, isLoading, error, createActivity, completeActivity, deleteActivity } = useActivities({
+  const { activities, isLoading, error, createActivity, updateActivity, completeActivity, deleteActivity } = useActivities({
     type: filterType || undefined,
   });
 
@@ -250,16 +308,19 @@ export default function ActivitiesPage() {
               const config  = ACTIVITY_TYPES[activity.type];
               const contact = activity.contact;
               const assignee = typeof activity.assignedTo === 'object' && activity.assignedTo ? activity.assignedTo : null;
+              const canAssign = user && (user.isOwner || user.role?.name === 'admin' || user.role?.name === 'sales_manager');
               return (
                 <motion.div key={activity.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
-                  <Card className={`p-4 ${activity.completed ? 'opacity-60' : ''}`}>
+                  <Card className={`p-4 cursor-pointer hover:border-primary/30 transition-colors ${activity.completed ? 'opacity-60' : ''}`} onClick={() => setDetailId(activity.id)}>
                     <div className="flex items-start gap-4">
-                      <input
-                        type="checkbox"
-                        checked={activity.completed}
-                        onChange={() => handleToggleComplete(activity.id, activity.completed)}
-                        className="w-5 h-5 mt-1 cursor-pointer accent-primary"
-                      />
+                      <div onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={activity.completed}
+                          onChange={() => handleToggleComplete(activity.id, activity.completed)}
+                          className="w-5 h-5 mt-1 cursor-pointer accent-primary"
+                        />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
@@ -272,7 +333,6 @@ export default function ActivitiesPage() {
                             <div className="flex items-center gap-3 mt-2 flex-wrap">
                               <Badge variant="default" size="sm">{config.label}</Badge>
                               {contact && <span className="text-xs text-muted-foreground">{contact.firstName} {contact.lastName}</span>}
-                              {assignee && <span className="text-xs text-muted-foreground">Assigned: {(assignee as any).name}</span>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
@@ -282,13 +342,63 @@ export default function ActivitiesPage() {
                               </p>
                             )}
                             <button
-                              onClick={() => setDeleteId(activity.id)}
+                              onClick={(e) => { e.stopPropagation(); setDeleteId(activity.id); }}
                               className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                               title="Delete activity"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
+                        </div>
+                        {/* Assignee row */}
+                        <div onClick={e => e.stopPropagation()} className="flex items-center gap-2 mt-2">
+                          {assignee ? (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <UserIcon className="w-3 h-3" />
+                              {assignee.name}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                          )}
+                          {canAssign && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setAssignId(assignId === activity.id ? null : activity.id)}
+                                className="text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-0.5"
+                              >
+                                Assign <ChevronDown className="w-3 h-3" />
+                              </button>
+                              {assignId === activity.id && (
+                                <div className="absolute left-0 top-6 z-50 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[180px] max-h-48 overflow-y-auto">
+                                  <button
+                                    onClick={async () => {
+                                      await apiFetch(`/activities/${activity.id}`, { method: 'PUT', body: JSON.stringify({ assignedToId: null }) });
+                                      triggerRefresh('activities');
+                                      setAssignId(null);
+                                      addToast({ type: 'success', message: 'Activity unassigned.' });
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/30 transition-colors"
+                                  >
+                                    Unassign
+                                  </button>
+                                  {members.filter(m => m.id !== (typeof activity.assignedTo === 'object' ? activity.assignedTo?.id : activity.assignedTo)).map(m => (
+                                    <button
+                                      key={m.id}
+                                      onClick={async () => {
+                                        await apiFetch(`/activities/${activity.id}`, { method: 'PUT', body: JSON.stringify({ assignedToId: m.id }) });
+                                        triggerRefresh('activities');
+                                        setAssignId(null);
+                                        addToast({ type: 'success', message: `Assigned to ${m.name}.` });
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-muted/30 transition-colors"
+                                    >
+                                      {m.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -299,6 +409,13 @@ export default function ActivitiesPage() {
           )}
         </div>
       )}
+
+      {/* Detail Modal */}
+      <ActivityDetailModal
+        activity={activities.find(a => a.id === detailId)}
+        isOpen={!!detailId}
+        onClose={() => setDetailId(null)}
+      />
 
       {/* New Activity Modal */}
       <NewActivityModal isOpen={newOpen} onClose={() => setNewOpen(false)} onSave={handleCreate} />

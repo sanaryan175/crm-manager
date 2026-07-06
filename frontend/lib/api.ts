@@ -46,7 +46,8 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
         }
       }
     }
-    throw new Error(data.message || `API error: ${response.status}`);
+    const message = (data.message || `API error: ${response.status}`).replace(/\s*\(Stack:[\s\S]*/, '');
+    throw new Error(message);
   }
 
   return data.data; // Standard response envelope returns data inside .data

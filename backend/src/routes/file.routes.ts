@@ -11,6 +11,7 @@ router.use(authenticate);
 // Static routes before parameterized routes
 router.get('/folders',     requirePermission('reports.view'), FileController.folders);
 router.get('/all',         requirePermission('reports.view'), FileController.listAll);
+router.post('/folders',    requirePermission('reports.view'), FileController.createFolder);
 router.post('/upload',     requirePermission('reports.view'), upload.single('file'), FileController.upload);
 router.post('/upload-multiple', requirePermission('reports.view'), upload.array('files', 10), FileController.uploadMultiple);
 
