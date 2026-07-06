@@ -11,6 +11,8 @@ export interface Organization {
   country: string;
   currency: string;
   timezone: string;
+  dateFormat: string;
+  timeFormat: '12h' | '24h';
   fiscalYear: number;
   companySize?: string;
   setupComplete: boolean;
@@ -59,7 +61,7 @@ export interface User {
   avatar?: string;
   lastLoginAt?: Date | string;
   createdAt: Date | string;
-  organization?: Pick<Organization, 'id' | 'name' | 'country' | 'currency' | 'setupComplete' | 'timezone'>;
+  organization?: Pick<Organization, 'id' | 'name' | 'country' | 'currency' | 'setupComplete' | 'timezone' | 'dateFormat' | 'timeFormat'>;
 }
 
 // Contact Types
@@ -195,6 +197,13 @@ export interface Invitation {
 }
 
 // Dashboard Types
+export interface DashboardTrends {
+  contacts: number;
+  pipeline: number;
+  conversion: number;
+  closed: number;
+}
+
 export interface DashboardMetrics {
   totalContacts: number;
   totalDeals: number;
@@ -204,6 +213,7 @@ export interface DashboardMetrics {
   averageDealSize: number;
   overdueTasks: number;
   thisWeekActivities: number;
+  trends: DashboardTrends;
 }
 
 export interface PipelineMetrics {

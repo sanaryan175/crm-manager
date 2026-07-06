@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, List, LayoutGridIcon } from 'lucide-react';
 import KanbanBoard from '@/components/deals/kanban-board';
+import DealList from '@/components/deals/deal-list';
+import DealDetailModal from '@/components/deals/deal-detail-modal';
 import Card from '@/components/ui/card';
 import Modal from '@/components/ui/modal';
 import { useUI, useRegion } from '@/lib/context';
 import { useDeals, useContacts } from '@/lib/hooks';
-import { DEAL_STAGES, type DealStage, type DealPriority, type DealCloseReason } from '@/lib/types';
+import { DEAL_STAGES, type Deal, type DealStage, type DealPriority, type DealCloseReason } from '@/lib/types';
 
 const PRIORITIES: DealPriority[] = ['low', 'medium', 'high'];
 const STAGES = Object.entries(DEAL_STAGES).map(([k, v]) => ({ value: k as DealStage, label: v.label }));
@@ -206,6 +208,7 @@ export default function DealsPage() {
   const [newOpen,     setNewOpen]     = useState(false);
   const [closeOpen,   setCloseOpen]   = useState(false);
   const [closeDealId, setCloseDealId] = useState<string | null>(null);
+  const [detailDeal,  setDetailDeal]  = useState<Deal | null>(null);
 
   const handleCreate = async (data: Record<string, any>) => {
     await createDeal(data);
@@ -250,6 +253,13 @@ export default function DealsPage() {
       {viewMode === 'kanban' && (
         <KanbanBoard
           onCloseDeal={(id) => { setCloseDealId(id); setCloseOpen(true); }}
+          onDealClick={(deal) => setDetailDeal(deal)}
+        />
+      )}
+      {viewMode === 'list' && (
+        <DealList
+          onCloseDeal={(id) => { setCloseDealId(id); setCloseOpen(true); }}
+          onDealClick={(deal) => setDetailDeal(deal)}
         />
       )}
 
@@ -259,6 +269,16 @@ export default function DealsPage() {
         isOpen={closeOpen && !!closeDealId}
         onClose={() => { setCloseOpen(false); setCloseDealId(null); }}
         onConfirm={handleCloseDeal}
+      />
+      <DealDetailModal
+        deal={detailDeal}
+        isOpen={!!detailDeal}
+        onClose={() => setDetailDeal(null)}
+        onCloseDeal={async (id, stage, reason) => {
+          await updateDealStage(id, stage, reason);
+          addToast({ type: 'success', message: `Deal marked as ${reason === 'won' ? 'won 🏆' : 'lost'}.` });
+          setDetailDeal(null);
+        }}
       />
     </motion.div>
   );

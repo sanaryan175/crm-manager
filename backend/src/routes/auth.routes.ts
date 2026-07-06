@@ -9,6 +9,8 @@ import {
   updateProfileSchema,
   changePasswordSchema,
   completeOnboardingSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from '../validations/auth.validation';
 
 const router = Router();
@@ -20,5 +22,7 @@ router.get('/me',                  authenticate,                         AuthCon
 router.patch('/me',                authenticate, validate(updateProfileSchema),     AuthController.updateMe);
 router.post('/change-password',    authenticate, validate(changePasswordSchema),    AuthController.changePassword);
 router.post('/complete-onboarding', authenticate, validate(completeOnboardingSchema), AuthController.completeOnboarding);
+router.post('/forgot-password',     validate(forgotPasswordSchema), AuthController.forgotPassword);
+router.post('/reset-password',      validate(resetPasswordSchema),  AuthController.resetPassword);
 
 export default router;

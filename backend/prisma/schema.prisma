@@ -89,6 +89,8 @@ model Organization {
   country      String   @default("US")
   currency     String   @default("USD")
   timezone     String   @default("UTC")
+  dateFormat   String   @default("YYYY-MM-DD") @map("date_format")
+  timeFormat   String   @default("24h") @map("time_format")
   fiscalYear   Int      @default(1) @map("fiscal_year")   // month number 1-12
   companySize  String?  @map("company_size")
   businessHours String? @map("business_hours")
@@ -187,6 +189,8 @@ model User {
   dateFormat         String   @default("MM/DD/YYYY") @map("date_format")
   timeFormat         String   @default("12h") @map("time_format")
   lastLoginAt        DateTime? @map("last_login_at")
+  resetPin           String?   @map("reset_pin")
+  resetPinExpires    DateTime? @map("reset_pin_expires")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

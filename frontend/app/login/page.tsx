@@ -252,13 +252,12 @@ export default function LoginPage() {
               {/* Forgot password — login only */}
               {mode === 'login' && (
                 <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => addToast({ type: 'info', message: 'Password reset coming soon.' })}
+                  <a
+                    href="/forgot-password"
                     className="text-xs text-primary hover:underline"
                   >
                     Forgot password?
-                  </button>
+                  </a>
                 </div>
               )}
 

@@ -10,7 +10,7 @@ import {
 import Card, { CardHeader } from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import Modal from '@/components/ui/modal';
-import { useAuth, useUI } from '@/lib/context';
+import { useAuth, useUI, useRegion } from '@/lib/context';
 import { useTeamMembers, useInvitations, useRoles, useOrganization } from '@/lib/hooks';
 import { INVITE_PERMISSIONS } from '@/lib/rbac';
 import { CURRENCIES } from '@/lib/regions';
@@ -177,7 +177,7 @@ function OrgEditForm({
   userRole,
 }: {
   org: any;
-  onSave: (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string; phone?: string; address?: string }) => Promise<void>;
+  onSave: (updates: { name?: string; country?: string; currency?: string; timezone?: string; dateFormat?: string; timeFormat?: string; website?: string; phone?: string; address?: string }) => Promise<void>;
   userRole?: string;
 }) {
   const { addToast } = useUI();
@@ -185,6 +185,8 @@ function OrgEditForm({
   const [country,     setCountry]     = useState(org?.country ?? '');
   const [currency,    setCurrency]    = useState(org?.currency ?? '');
   const [timezone,    setTimezone]    = useState(org?.timezone ?? '');
+  const [dateFormat,  setDateFormat]  = useState(org?.dateFormat ?? 'YYYY-MM-DD');
+  const [timeFormat,  setTimeFormat]  = useState(org?.timeFormat ?? '24h');
   const [website,     setWebsite]     = useState(org?.website ?? '');
   const [phone,       setPhone]       = useState(org?.phone ?? '');
   const [address,     setAddress]     = useState(org?.address ?? '');
@@ -197,7 +199,7 @@ function OrgEditForm({
     if (!name.trim()) { addToast({ type: 'error', message: 'Organization name is required.' }); return; }
     setSubmitting(true);
     try {
-      await onSave({ name: name.trim(), country, currency, timezone, website: website.trim() || undefined, phone: phone.trim() || undefined, address: address.trim() || undefined });
+      await onSave({ name: name.trim(), country, currency, timezone, dateFormat, timeFormat, website: website.trim() || undefined, phone: phone.trim() || undefined, address: address.trim() || undefined });
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to update organization.' });
     } finally {
@@ -235,6 +237,29 @@ function OrgEditForm({
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timezone</label>
         <input className={inp} value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="UTC" />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Format</label>
+          <select className={inp} value={dateFormat} onChange={e => setDateFormat(e.target.value)}>
+            <option value="YYYY-MM-DD">YYYY-MM-DD (2025-07-25)</option>
+            <option value="MM/DD/YYYY">MM/DD/YYYY (07/25/2025)</option>
+            <option value="DD/MM/YYYY">DD/MM/YYYY (25/07/2025)</option>
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time Format</label>
+          <div className="flex gap-2">
+            {['12h', '24h'].map((fmt) => (
+              <button key={fmt} type="button" onClick={() => setTimeFormat(fmt)}
+                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
+                  timeFormat === fmt ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 border-border/40 text-muted-foreground'
+                }`}>
+                {fmt === '12h' ? '12h (AM/PM)' : '24h'}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Website <span className="font-normal normal-case text-muted-foreground/60">(optional)</span></label>
@@ -308,8 +333,9 @@ function ChangePasswordForm() {
 
 // ─── Main Settings Page ───────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user, hasPermission }         = useAuth();
+  const { user, hasPermission, refreshUser }         = useAuth();
   const { addToast }                    = useUI();
+  const { formatDateTime }              = useRegion();
   const searchParams                    = useSearchParams();
   const { members, isLoading: membersLoading, deactivateUser, changeRole } = useTeamMembers();
   const { invitations, isLoading: invLoading, revokeInvitation, resendInvitation } = useInvitations();
@@ -336,29 +362,45 @@ export default function SettingsPage() {
   const canManage    = hasPermission('user.update') || hasPermission('user.remove');
   const myRoleName   = user?.role?.name ?? '';
 
-  // ── Preferences state (localStorage-backed) ──────────────────────────────
+  // ── Preferences state (user + org defaults) ────────────────────────────
   const [prefTheme,      setPrefTheme]      = useState('system');
-  const [prefLanguage,   setPrefLanguage]   = useState('en');
-  const [prefTimezone,   setPrefTimezone]   = useState('UTC');
-  const [prefDateFormat, setPrefDateFormat] = useState('MM/DD/YYYY');
-  const [prefTimeFormat, setPrefTimeFormat] = useState('12h');
-
+  const [prefLanguage,   setPrefLanguage]   = useState(user?.language ?? organization?.timezone ? 'en' : 'en');
+  const [prefTimezone,   setPrefTimezone]   = useState(user?.timezone ?? organization?.timezone ?? 'UTC');
+  const [prefDateFormat, setPrefDateFormat] = useState(user?.dateFormat ?? organization?.dateFormat ?? 'YYYY-MM-DD');
+  const [prefTimeFormat, setPrefTimeFormat] = useState(user?.timeFormat ?? organization?.timeFormat ?? '24h');
 
   useEffect(() => {
-    setPrefTheme(localStorage.getItem('pref_theme')      ?? 'system');
-    setPrefLanguage(localStorage.getItem('pref_language')   ?? 'en');
-    setPrefTimezone(localStorage.getItem('pref_timezone')   ?? 'UTC');
-    setPrefDateFormat(localStorage.getItem('pref_dateFormat') ?? 'MM/DD/YYYY');
-    setPrefTimeFormat(localStorage.getItem('pref_timeFormat') ?? '12h');
-
+    setPrefTheme(localStorage.getItem('pref_theme') ?? 'system');
   }, []);
 
-  const handleSavePreferences = () => {
-    localStorage.setItem('pref_theme',      prefTheme);
-    localStorage.setItem('pref_language',   prefLanguage);
-    localStorage.setItem('pref_timezone',   prefTimezone);
-    localStorage.setItem('pref_dateFormat', prefDateFormat);
-    localStorage.setItem('pref_timeFormat', prefTimeFormat);
+  useEffect(() => {
+    if (user) {
+      setPrefLanguage(user.language ?? 'en');
+      setPrefTimezone(user.timezone ?? organization?.timezone ?? 'UTC');
+      setPrefDateFormat(user.dateFormat ?? organization?.dateFormat ?? 'YYYY-MM-DD');
+      setPrefTimeFormat(user.timeFormat ?? organization?.timeFormat ?? '24h');
+    }
+  }, [user, organization]);
+
+  const handleSavePreferences = async () => {
+    localStorage.setItem('pref_theme', prefTheme);
+
+    // Save to backend
+    try {
+      await apiFetch('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          language: prefLanguage,
+          timezone: prefTimezone,
+          dateFormat: prefDateFormat,
+          timeFormat: prefTimeFormat as '12h' | '24h',
+        }),
+      });
+      await refreshUser();
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to save preferences.' });
+      return;
+    }
 
     // Apply theme
     if (prefTheme === 'dark') document.documentElement.classList.add('dark');
@@ -611,7 +653,7 @@ export default function SettingsPage() {
                             </Badge>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                              Expires {formatDateTime(inv.expiresAt, { includeTime: false })}
                             </span>
                           </div>
                         </div>
@@ -687,6 +729,8 @@ export default function SettingsPage() {
                 { label: 'Country',      value: organization?.country },
                 { label: 'Currency',     value: organization?.currency },
                 { label: 'Timezone',     value: organization?.timezone },
+                { label: 'Date Format',  value: organization?.dateFormat },
+                { label: 'Time Format',  value: organization?.timeFormat },
                 { label: 'Phone',        value: organization?.phone ?? '—' },
                 { label: 'Address',      value: organization?.address ?? '—' },
                 { label: 'Website',      value: organization?.website ?? '—' },
@@ -725,7 +769,7 @@ export default function SettingsPage() {
               {[
                 { label: 'Password',        value: '••••••••' },
                 { label: 'Two-Factor Auth', value: 'Disabled' },
-                { label: 'Last Login',      value: user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'N/A' },
+                { label: 'Last Login',      value: user?.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'N/A' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <span className="text-sm text-muted-foreground">{item.label}</span>
@@ -829,7 +873,7 @@ export default function SettingsPage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Time Format</label>
                 <div className="flex gap-3">
-                  {['12h','24h'].map((fmt)=>(
+                  {(['12h','24h'] as const).map((fmt)=>(
                     <button key={fmt} type="button" onClick={() => setPrefTimeFormat(fmt)}
                       className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
                         prefTimeFormat === fmt ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40'

@@ -83,15 +83,3 @@ export function formatCurrency(
   }).format(value);
 }
 
-/**
- * Format a date using the locale of the given country.
- */
-export function formatDate(
-  date: Date | string,
-  countryCode: string,
-  options?: Intl.DateTimeFormatOptions
-): string {
-  const country = getCountryConfig(countryCode);
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(country.dateLocale, options ?? { year: 'numeric', month: 'short', day: 'numeric' });
-}

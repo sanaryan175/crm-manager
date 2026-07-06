@@ -9,6 +9,7 @@ import PipelineOverview from '@/components/dashboard/pipeline-overview';
 import RecentActivities from '@/components/dashboard/recent-activities';
 import QuickStats from '@/components/dashboard/quick-stats';
 import ProfileCompletionModal from '@/components/profile/ProfileCompletionModal';
+import FaqModal from '@/components/layout/faq-modal';
 import Modal from '@/components/ui/modal';
 import { useAuth, useUI } from '@/lib/context';
 import { useInvitations, useRoles } from '@/lib/hooks';
@@ -122,12 +123,12 @@ function InviteMemberModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
 // ─── Role-aware subtitle ───────────────────────────────────────────────────────
 const ROLE_SUBTITLES: Record<string, string> = {
-  owner:        "Your organization dashboard",
-  admin:        "Your organization dashboard",
-  sales_manager: "Your team's pipeline",
-  sales_rep:     "Your pipeline",
-  marketing:     "Your campaigns",
-  support:       "Your support queue",
+  owner:         "this is your organization dashboard",
+  admin:         "this is your organization dashboard",
+  sales_manager: "this is your team's dashboard",
+  sales_rep:     "this is your workspace",
+  marketing:     "this is your campaigns overview",
+  support:       "this is your support queue",
 };
 
 // ─── Dashboard Checklist Widget ────────────────────────────────────────────────

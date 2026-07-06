@@ -68,4 +68,20 @@ export class AuthController {
       sendSuccess(res, user, 'Onboarding complete');
     } catch (error) { next(error); }
   }
+
+  // POST /auth/forgot-password
+  static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await AuthService.forgotPassword(req.body.email);
+      sendSuccess(res, result, 'If the email exists, a reset PIN has been sent');
+    } catch (error) { next(error); }
+  }
+
+  // POST /auth/reset-password
+  static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await AuthService.resetPassword(req.body.email, req.body.pin, req.body.newPassword);
+      sendSuccess(res, result, 'Password reset successfully');
+    } catch (error) { next(error); }
+  }
 }

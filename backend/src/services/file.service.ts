@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import crypto from 'crypto';
 import prisma from '../config/db';
 import { NotFoundError } from '../utils/errors';
 
@@ -29,8 +30,9 @@ export class FileService {
     const orgDir = path.join(UPLOADS_DIR, organizationId, ...normalizedFolder.split('/').filter(Boolean));
     await fs.mkdir(orgDir, { recursive: true });
 
-    const timestamp = Date.now();
-    const storedName = `${timestamp}-${file.originalname}`;
+    const ext = path.extname(file.originalname);
+    const uuid = crypto.randomUUID();
+    const storedName = `${uuid}${ext}`;
     const destPath = path.join(orgDir, storedName);
     await fs.writeFile(destPath, file.buffer);
 
@@ -99,7 +101,7 @@ export class FileService {
     const normalized = normalizeFolder(folderPath);
     const dir = path.join(UPLOADS_DIR, organizationId, ...normalized.split('/').filter(Boolean));
     await fs.mkdir(dir, { recursive: true });
-    const markerName = `.folder-${Date.now()}`;
+    const markerName = `.folder-${crypto.randomUUID()}`;
     await prisma.fileEntry.create({
       data: {
         organizationId,

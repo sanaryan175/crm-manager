@@ -1,41 +1,16 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, DollarSign, Target, ArrowUpRight } from 'lucide-react';
-import { useDashboardMetrics, useDeals } from '@/lib/hooks';
+import { useDashboardMetrics } from '@/lib/hooks';
 import { useRegion } from '@/lib/context';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 
 export default function DashboardMetrics() {
   const { metrics, isLoading, error } = useDashboardMetrics();
-  const { deals } = useDeals();
   const { formatMoneyCompact } = useRegion();
-
-  // Calculate pipeline value
-  const pipelineValue = useMemo(() => {
-    let total = 0;
-    deals.forEach((deal: any) => {
-      if (deal.stage !== 'closed_lost') {
-        total += deal.value;
-      }
-    });
-    return total;
-  }, [deals]);
-
-  // Calculate closed won this month
-  const closedWonThisMonth = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    let total = 0;
-    deals.forEach((deal: any) => {
-      if (deal.stage === 'closed_won' && new Date(deal.closedAt || '') >= startOfMonth) {
-        total += deal.value;
-      }
-    });
-    return total;
-  }, [deals]);
 
   if (error) {
     return (
@@ -55,34 +30,44 @@ export default function DashboardMetrics() {
     );
   }
 
+  const { trends } = metrics;
+  const trendLabel = (v: number) =>
+    v > 0 ? `+${v}%` : v < 0 ? `${v}%` : '0%';
+  const trendVariant = (v: number): 'success' | 'error' | 'default' =>
+    v > 0 ? 'success' : v < 0 ? 'error' : 'default';
+
   const kpis = [
     {
       label: 'Total Contacts',
       value: metrics.totalContacts.toLocaleString(),
       icon: Users,
       color: 'from-blue-500 to-cyan-500',
-      trend: '+12%',
+      trend: trendLabel(trends.contacts),
+      variant: trendVariant(trends.contacts),
     },
     {
       label: 'Pipeline Value',
-      value: formatMoneyCompact(pipelineValue),
+      value: formatMoneyCompact(metrics.pipelineValue),
       icon: DollarSign,
       color: 'from-green-500 to-emerald-500',
-      trend: '+28%',
+      trend: trendLabel(trends.pipeline),
+      variant: trendVariant(trends.pipeline),
     },
     {
       label: 'Conversion Rate',
       value: `${metrics.conversionRate}%`,
       icon: Target,
       color: 'from-purple-500 to-pink-500',
-      trend: '+5%',
+      trend: trendLabel(trends.conversion),
+      variant: trendVariant(trends.conversion),
     },
     {
       label: 'Closed This Month',
-      value: formatMoneyCompact(closedWonThisMonth),
+      value: formatMoneyCompact(metrics.closedWonThisMonth),
       icon: TrendingUp,
       color: 'from-orange-500 to-red-500',
-      trend: '+15%',
+      trend: trendLabel(trends.closed),
+      variant: trendVariant(trends.closed),
     },
   ];
 
@@ -103,7 +88,7 @@ export default function DashboardMetrics() {
                 <div className="space-y-2">
                   <p className="text-xs sm:text-sm text-muted-foreground">{kpi.label}</p>
                   <p className="text-xl sm:text-2xl font-bold text-foreground">{kpi.value}</p>
-                  <Badge variant="success" size="sm" className="mt-2">
+                  <Badge variant={kpi.variant} size="sm" className="mt-2">
                     <ArrowUpRight className="w-3 h-3 mr-1" />
                     {kpi.trend}
                   </Badge>

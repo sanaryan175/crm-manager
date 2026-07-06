@@ -7,9 +7,11 @@ import { ACTIVITY_TYPES } from '@/lib/types';
 import Card, { CardHeader } from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import { ChevronRight } from 'lucide-react';
+import { useRegion } from '@/lib/context';
 
 export default function RecentActivities() {
   const { activities, isLoading, error } = useActivities();
+  const { formatDateTime } = useRegion();
   const recentActivities = activities.slice(0, 5);
 
   if (error) {
@@ -67,10 +69,7 @@ export default function RecentActivities() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground flex-shrink-0">
-                {new Date(activity.createdAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {formatDateTime(activity.createdAt, { includeTime: false })}
               </p>
             </div>
           );

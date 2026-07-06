@@ -221,6 +221,31 @@ export class EmailService {
     );
   }
 
+  /** Password reset PIN */
+  static async sendPasswordResetPinEmail(data: {
+    to: string;
+    name: string;
+    pin: string;
+  }): Promise<boolean> {
+    return sendEmail(
+      data.to,
+      'Your Password Reset PIN',
+      wrapper(`
+        <h2 style="color: #111827; margin: 0 0 8px;">Password Reset</h2>
+        <p style="color: #6b7280; margin: 0 0 16px; line-height: 1.6;">
+          Hi <strong>${data.name}</strong>,
+        </p>
+        <p style="color: #6b7280; margin: 0 0 16px; line-height: 1.6;">
+          You requested to reset your password. Use the 6-digit PIN below to proceed:
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <div style="background: #f3f4f6; border-radius: 8px; padding: 20px 32px; display: inline-block; letter-spacing: 12px; font-size: 28px; font-weight: bold; color: #111827;">${data.pin}</div>
+        </div>
+        <p style="color: #9ca3af; font-size: 13px; margin: 0;">This PIN expires in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
+      `)
+    );
+  }
+
   /** Notification when an activity is assigned to a user */
   static async sendActivityAssignedEmail(data: {
     to: string;

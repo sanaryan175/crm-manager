@@ -8,7 +8,7 @@ import Toast from './toast';
 import { useUI, useAuth } from '@/lib/context';
 
 // Pages that don't need auth or sidebar
-const PUBLIC_ROUTES = ['/login', '/onboarding/setup', '/onboarding/user', '/onboarding/welcome', '/invitations/accept'];
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/onboarding/setup', '/onboarding/user', '/onboarding/welcome', '/invitations/accept'];
 
 interface RootLayoutClientProps {
   children: ReactNode;

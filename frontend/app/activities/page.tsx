@@ -9,7 +9,7 @@ import { ACTIVITY_TYPES, type ActivityType } from '@/lib/types';
 import Card from '@/components/ui/card';
 import Badge from '@/components/ui/badge';
 import Modal from '@/components/ui/modal';
-import { useFilters, useUI, useAuth } from '@/lib/context';
+import { useFilters, useUI, useAuth, useRegion } from '@/lib/context';
 
 // ─── New Activity Modal ───────────────────────────────────────────────────────
 function NewActivityModal({
@@ -136,6 +136,7 @@ function ActivityDetailModal({
   onClose: () => void;
 }) {
   if (!activity) return null;
+  const { formatDateTime } = useRegion();
   const config = ACTIVITY_TYPES[activity.type as ActivityType];
   const contact = activity.contact;
   const assignee = typeof activity.assignedTo === 'object' && activity.assignedTo ? activity.assignedTo : null;
@@ -145,7 +146,7 @@ function ActivityDetailModal({
     { icon: Calendar, label: 'Type', value: config?.label ?? activity.type },
     { icon: UserIcon, label: 'Contact', value: contact ? `${contact.firstName} ${contact.lastName}` : '—' },
     { icon: UserIcon, label: 'Assigned To', value: assignee ? (assignee as any).name : '—' },
-    { icon: Clock, label: 'Due Date', value: activity.dueDate ? new Date(activity.dueDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—' },
+    { icon: Clock, label: 'Due Date', value: activity.dueDate ? formatDateTime(activity.dueDate) : '—' },
     { icon: Clock, label: 'Status', value: activity.completed ? 'Completed' : 'Pending' },
   ];
 
@@ -182,6 +183,7 @@ function ActivityDetailModal({
 export default function ActivitiesPage() {
   const { searchQuery, setSearchQuery, filters, setFilter } = useFilters();
   const { user, hasPermission } = useAuth();
+  const { formatDateTime } = useRegion();
   const { members } = useTeamMembers();
   const [filterType,  setFilterType]  = useState<string>('');
   const [newOpen,     setNewOpen]     = useState(false);
@@ -338,7 +340,7 @@ export default function ActivitiesPage() {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {activity.dueDate && (
                               <p className="text-xs text-muted-foreground">
-                                {new Date(activity.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {formatDateTime(activity.dueDate, { includeTime: false })}
                               </p>
                             )}
                             <button

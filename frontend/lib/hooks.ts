@@ -246,7 +246,7 @@ export const useDashboardMetrics = () => {
 export const useOrganization = () => {
   const { data, isLoading, error, refetch } = useQuery<Organization>('organization', '/organization');
 
-  const updateOrganization = async (updates: { name?: string; country?: string; currency?: string; timezone?: string; website?: string; phone?: string; address?: string }) => {
+  const updateOrganization = async (updates: { name?: string; country?: string; currency?: string; timezone?: string; dateFormat?: string; timeFormat?: string; website?: string; phone?: string; address?: string }) => {
     const response = await apiFetch('/organization', {
       method: 'PUT',
       body: JSON.stringify(updates),

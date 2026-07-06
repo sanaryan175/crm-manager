@@ -8,6 +8,7 @@ import organizationRouter from './organization.routes';
 import invitationRouter  from './invitation.routes';
 import userRouter        from './user.routes';
 import fileRouter        from './file.routes';
+import notificationRouter from './notification.routes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/organization', organizationRouter);
 router.use('/invitations',  invitationRouter);
 router.use('/users',        userRouter);
 router.use('/files',        fileRouter);
+router.use('/notifications', notificationRouter);
 
 export default router;

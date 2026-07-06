@@ -7,7 +7,7 @@ import Card from '@/components/ui/card';
 import Modal from '@/components/ui/modal';
 import Badge from '@/components/ui/badge';
 import { apiFetch } from '@/lib/api';
-import { useUI } from '@/lib/context';
+import { useUI, useRegion } from '@/lib/context';
 import type { FileEntry, FileStructure } from '@/lib/types';
 
 const CATEGORIES = ['All', 'Finance', 'HR', 'Sales', 'Marketing', 'Legal', 'Operations', 'General'];
@@ -16,11 +16,6 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function FileIcon({ mimeType, className = 'w-5 h-5' }: { mimeType: string; className?: string }) {
@@ -61,6 +56,7 @@ function FilePreviewModal({ file, isOpen, onClose, onDownload, onDelete }: {
   onDownload: (f: FileEntry) => void;
   onDelete: (id: string) => void;
 }) {
+  const { formatDateTime } = useRegion();
   if (!file) return null;
   const isImage = file.mimeType.startsWith('image/');
   const isText = file.mimeType.startsWith('text/') || file.mimeType === 'application/json';
@@ -99,8 +95,8 @@ function FilePreviewModal({ file, isOpen, onClose, onDownload, onDelete }: {
             { label: 'Type', value: file.mimeType },
             { label: 'Uploaded by', value: file.uploadedBy?.name || '—' },
             { label: 'Folder', value: file.folder === '/' ? 'Root' : file.folder },
-            { label: 'Created', value: formatDate(file.createdAt) },
-            { label: 'Modified', value: formatDate(file.updatedAt) },
+            { label: 'Created', value: formatDateTime(file.createdAt) },
+            { label: 'Modified', value: formatDateTime(file.updatedAt) },
           ].map(r => (
             <div key={r.label}>
               <p className="text-xs text-muted-foreground uppercase tracking-wider">{r.label}</p>
@@ -125,12 +121,12 @@ function FilePreviewModal({ file, isOpen, onClose, onDownload, onDelete }: {
 // ─── Reports Page ──────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const { addToast } = useUI();
+  const { formatDateTime } = useRegion();
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [folders, setFolders] = useState<string[]>(['/']);
   const [currentFolder, setCurrentFolder] = useState('/');
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [newFolderModal, setNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -163,19 +159,28 @@ export default function ReportsPage() {
 
   // Folder subfolders for the current path
   const subfolders = useMemo(() => {
-    const prefix = currentFolder === '/' ? '' : currentFolder;
+    const cat = activeCategory.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     return folders.filter(f => {
       if (f === currentFolder || f === '/') return false;
       const parent = f.substring(0, f.lastIndexOf('/')) || '/';
-      return parent === currentFolder;
+      const folderName = f.split('/').pop()?.toLowerCase() || '';
+      if (activeCategory !== 'All' && !folderName.includes(cat)) return false;
+      if (q && !folderName.includes(q)) return false;
+      if (activeCategory === 'All') return parent === currentFolder;
+      return true;
     });
-  }, [folders, currentFolder]);
+  }, [folders, currentFolder, activeCategory, searchQuery]);
 
   // Filtered files
   const filteredFiles = useMemo(() => {
-    let list = files.filter(f => f.folder === currentFolder && f.mimeType !== 'inode/directory');
+    const cat = activeCategory.toLowerCase();
+    let list = files.filter(f => f.mimeType !== 'inode/directory');
+    if (activeCategory === 'All') {
+      list = list.filter(f => f.folder === currentFolder);
+    }
     if (activeCategory !== 'All') {
-      list = list.filter(f => f.originalName.toLowerCase().includes(activeCategory.toLowerCase()) || (f as any).category === activeCategory);
+      list = list.filter(f => f.originalName.toLowerCase().includes(cat));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -224,12 +229,6 @@ export default function ReportsPage() {
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleUpload(e.dataTransfer.files);
   };
 
   const handleDownload = async (file: FileEntry) => {
@@ -384,24 +383,6 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Drop Zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
-          dragOver
-            ? 'border-primary bg-primary/5 scale-[1.01]'
-            : 'border-border hover:border-muted-foreground/30'
-        }`}
-      >
-        <Upload className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">
-          {dragOver ? 'Drop files here' : `Drag & drop files to ${currentFolder === '/' ? 'Root' : currentFolder}, or click the Upload button`}
-        </p>
-        <p className="text-xs text-muted-foreground/50 mt-1">PDF, Word, Excel, Images, and more</p>
-      </div>
-
       {/* Files List */}
       {isLoading ? (
         <div className="flex justify-center items-center py-12">
@@ -425,7 +406,7 @@ export default function ReportsPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{file.originalName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {formatSize(file.size)} &middot; {file.uploadedBy?.name} &middot; {formatDate(file.createdAt)}
+                  {formatSize(file.size)} &middot; {file.uploadedBy?.name} &middot; {formatDateTime(file.createdAt)}
                 </p>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

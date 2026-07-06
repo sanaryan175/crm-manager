@@ -2,6 +2,9 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+// Force Node.js to UTC — all new Date() / date math uses UTC
+process.env.TZ = 'UTC';
+
 import app from './app';
 
 const PORT = process.env.PORT || 5000;

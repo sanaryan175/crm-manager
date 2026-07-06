@@ -1,7 +1,8 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import type { User, Organization } from './types';
 import { apiFetch } from './api';
-import { formatCurrency, formatDate } from './regions';
+import { formatCurrency } from './regions';
+import { formatDateTime as fmtDateTime, DateFormat, TimeFormat } from './dateTime';
 
 // Auth Context
 interface AuthContextType {
@@ -266,15 +267,19 @@ interface RegionContextType {
   isLoading: boolean;
   formatMoney: (value: number) => string;
   formatMoneyCompact: (value: number) => string;
-  formatRegionDate: (date: Date | string, options?: Intl.DateTimeFormatOptions) => string;
+  formatDateTime: (date: Date | string | null | undefined, options?: { includeTime?: boolean }) => string;
   baseCurrency: string;
   country: string;
+  effectiveTimezone: string;
+  effectiveDateFormat: DateFormat;
+  effectiveTimeFormat: TimeFormat;
   refreshOrganization: () => void;
 }
 
 const RegionContext = createContext<RegionContextType | undefined>(undefined);
 
 export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -296,6 +301,14 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const baseCurrency = organization?.currency ?? 'USD';
   const country = organization?.country ?? 'US';
 
+  const USER_DEFAULT_TZ = 'UTC';
+  const USER_DEFAULT_DF = 'MM/DD/YYYY';
+  const USER_DEFAULT_TF: TimeFormat = '12h';
+
+  const effectiveTimezone = (user && user.timezone !== USER_DEFAULT_TZ) ? user.timezone : (organization?.timezone || USER_DEFAULT_TZ);
+  const effectiveDateFormat: DateFormat = (user && user.dateFormat !== USER_DEFAULT_DF) ? user.dateFormat as DateFormat : (organization?.dateFormat || 'YYYY-MM-DD') as DateFormat;
+  const effectiveTimeFormat: TimeFormat = (user && user.timeFormat !== USER_DEFAULT_TF) ? user.timeFormat : (organization?.timeFormat || '24h') as TimeFormat;
+
   const formatMoney = useCallback(
     (value: number) =>
       formatCurrency(value, baseCurrency),
@@ -308,10 +321,10 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     [baseCurrency]
   );
 
-  const formatRegionDate = useCallback(
-    (date: Date | string, options?: Intl.DateTimeFormatOptions) =>
-      formatDate(date, country, options),
-    [country]
+  const formatDateTime = useCallback(
+    (date: Date | string | null | undefined, options?: { includeTime?: boolean }) =>
+      fmtDateTime(date, effectiveTimezone, effectiveDateFormat, effectiveTimeFormat, options?.includeTime ?? true),
+    [effectiveTimezone, effectiveDateFormat, effectiveTimeFormat]
   );
 
   return (
@@ -321,9 +334,12 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         isLoading,
         formatMoney,
         formatMoneyCompact,
-        formatRegionDate,
+        formatDateTime,
         baseCurrency,
         country,
+        effectiveTimezone,
+        effectiveDateFormat,
+        effectiveTimeFormat,
         refreshOrganization: fetchOrg,
       }}
     >

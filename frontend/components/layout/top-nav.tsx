@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Menu, Bell, HelpCircle, LogOut, Settings2, ChevronDown, User } from 'lucide-react';
-import { useAuth, useUI } from '@/lib/context';
-import { motion } from 'framer-motion';
+import { Menu, Bell, HelpCircle, LogOut, Settings2, ChevronDown, User, Target, Calendar } from 'lucide-react';
+import { useAuth, useUI, useRegion } from '@/lib/context';
+import { motion, AnimatePresence } from 'framer-motion';
+import { apiFetch } from '@/lib/api';
+import FaqModal from './faq-modal';
 
 interface TopNavProps {
   onMenuClick: () => void;
@@ -13,8 +15,80 @@ interface TopNavProps {
 export default function TopNav({ onMenuClick }: TopNavProps) {
   const { user, logout } = useAuth();
   const { addToast }     = useUI();
+  const { formatDateTime } = useRegion();
   const router           = useRouter();
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const storageKey = user ? `seen_notifications_${user.id}` : null;
+
+  // Load seen IDs from localStorage on mount
+  useEffect(() => {
+    if (storageKey) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) setSeenIds(new Set(JSON.parse(raw)));
+      } catch { /* ignore */ }
+    }
+  }, [storageKey]);
+
+  const persistSeen = (ids: Set<string>) => {
+    if (storageKey) localStorage.setItem(storageKey, JSON.stringify([...ids]));
+  };
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await apiFetch('/notifications');
+      setNotifications(res.notifications ?? []);
+      setUnread(res.unread ?? 0);
+    } catch {
+      // notifications are non-critical
+    }
+  }, []);
+
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+
+  const displayUnread = notifications.filter((n) => !seenIds.has(n.id)).length;
+
+  const markSeen = (id: string) => {
+    setSeenIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      persistSeen(next);
+      return next;
+    });
+  };
+
+  const markAllSeen = () => {
+    setSeenIds((prev) => {
+      const all = new Set(prev);
+      notifications.forEach((n) => all.add(n.id));
+      persistSeen(all);
+      return all;
+    });
+  };
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    if (notifOpen) document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [notifOpen]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -39,7 +113,9 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
     : '';
 
   return (
-    <motion.header
+    <>
+      <FaqModal isOpen={faqOpen} onClose={() => setFaqOpen(false)} />
+      <motion.header
       initial={{ y: -64 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.3 }}
@@ -54,13 +130,78 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
 
       {/* Right */}
       <div className="flex items-center gap-3">
-        <button className="p-2 hover:bg-accent/10 rounded-lg transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-        </button>
-        <button className="p-2 hover:bg-accent/10 rounded-lg transition-colors">
+        <div className="relative" ref={notifRef}>
+          <button onClick={() => { setNotifOpen((o) => !o); if (!notifOpen) fetchNotifications(); }} className="p-2 hover:bg-accent/10 rounded-lg transition-colors relative">
+            <Bell className="w-5 h-5" />
+            {displayUnread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1 leading-none">
+                {displayUnread > 9 ? '9+' : displayUnread}
+              </span>
+            )}
+          </button>
+
+          <AnimatePresence>
+            {notifOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                transition={{ duration: 0.12 }}
+                className="absolute top-full right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
+              >
+                <div className="px-4 py-3 border-b border-border bg-muted/20">
+                  <p className="text-sm font-semibold text-foreground">Notifications</p>
+                  <p className="text-xs text-muted-foreground">{displayUnread > 0 ? `${displayUnread} unread` : 'All caught up'}</p>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                      No notifications yet
+                    </div>
+                  ) : (
+                    notifications.map((n: any) => (
+                      <button
+                        key={n.id}
+                        onClick={() => { markSeen(n.id); setNotifOpen(false); router.push(n.type === 'deal' ? '/deals' : '/activities'); }}
+                        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/10 transition-colors border-b border-border/50 last:border-0"
+                      >
+                        <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${n.type === 'deal' ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'}`}>
+                          {n.type === 'deal' ? <Target className="w-3.5 h-3.5" /> : <Calendar className="w-3.5 h-3.5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground truncate">{n.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {n.type === 'deal' ? 'Deal' : 'Activity'}
+                            {n.contactName ? ` · ${n.contactName}` : ''}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+                {displayUnread > 0 && (
+                  <div className="border-t border-border px-4 py-2.5 bg-muted/10">
+                    <button onClick={markAllSeen} className="w-full text-xs text-center text-primary hover:underline font-medium">
+                      Mark all as read
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <button onClick={() => setFaqOpen(true)} className="p-2 hover:bg-accent/10 rounded-lg transition-colors">
           <HelpCircle className="w-5 h-5" />
         </button>
+
+        {/* Live Clock */}
+        {user && (
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/30 border border-border/40 text-xs font-medium text-muted-foreground tabular-nums">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            {formatDateTime(now)}
+          </div>
+        )}
 
         {/* User dropdown */}
         {user && (
@@ -125,6 +266,7 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
           </div>
         )}
       </div>
-    </motion.header>
+      </motion.header>
+    </>
   );
 }

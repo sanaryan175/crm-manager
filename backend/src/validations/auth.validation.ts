@@ -37,11 +37,18 @@ export const loginSchema = z.object({
 
 export const updateProfileSchema = z.object({
   body: z.object({
-    name:             z.string().min(1).optional(),
-    avatar:           z.string().optional(),
-    phone:            z.string().optional().transform(v => v === '' ? undefined : v),
-    jobTitle:         z.string().optional().transform(v => v === '' ? undefined : v),
-    profileCompleted: z.boolean().optional(),
+    name:               z.string().min(1).optional(),
+    avatar:             z.string().optional(),
+    phone:              z.string().optional().transform(v => v === '' ? undefined : v),
+    jobTitle:           z.string().optional().transform(v => v === '' ? undefined : v),
+    profileCompleted:   z.boolean().optional(),
+    timezone:           z.string().optional(),
+    language:           z.string().optional(),
+    dateFormat:         z.string().optional(),
+    timeFormat:         z.enum(['12h', '24h']).optional(),
+    emailNotifications: z.boolean().optional(),
+    taskReminders:      z.boolean().optional(),
+    meetingReminders:   z.boolean().optional(),
   }),
 });
 
@@ -63,5 +70,19 @@ export const changePasswordSchema = z.object({
   body: z.object({
     currentPassword: z.string().min(1, 'Current password is required'),
     newPassword:     z.string().min(8, 'New password must be at least 8 characters'),
+  }),
+});
+
+export const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email address'),
+  }),
+});
+
+export const resetPasswordSchema = z.object({
+  body: z.object({
+    email:       z.string().email('Invalid email address'),
+    pin:         z.string().length(6, 'PIN must be exactly 6 digits'),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
   }),
 });
