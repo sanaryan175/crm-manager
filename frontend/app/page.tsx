@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const Spline = dynamic(() => import('@splinetool/react-spline'), { ssr: false });
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, CheckCircle, Users, Briefcase, BarChart3,
@@ -275,53 +278,61 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero ───────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 sm:pt-40 sm:pb-32 px-4 text-center">
-        <motion.div custom={0} initial="hidden" animate="visible" variants={fadeUp}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          Built for modern sales teams
-        </motion.div>
+      <section className="relative pt-32 pb-24 sm:pt-40 sm:pb-32 px-4 text-center min-h-[80vh] flex flex-col items-center justify-center">
+        
+        {/* Spline 3D Embed */}
+        <div className="absolute inset-0 z-0 pointer-events-auto">
+          <Spline scene="https://my.spline.design/distortingtypography-8b7CpYH2054kCcRCAddFhYq1/scene.splinecode" />
+        </div>
 
-        <motion.h1 custom={1} initial="hidden" animate="visible" variants={fadeUp}
-          className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-tight mb-6">
-          Close More Deals.<br />
-          <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-            Build Lasting Relationships.
-          </span>
-        </motion.h1>
+        <div className="relative z-10 pointer-events-none flex flex-col items-center max-w-5xl mx-auto w-full">
+          <motion.div custom={0} initial="hidden" animate="visible" variants={fadeUp}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-6 pointer-events-auto">
+            <Sparkles className="w-3.5 h-3.5" />
+            Built for modern sales teams
+          </motion.div>
 
-        <motion.p custom={2} initial="hidden" animate="visible" variants={fadeUp}
-          className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          The CRM built for ambitious teams. Manage contacts, track your pipeline,
-          and collaborate seamlessly — from your first lead to your biggest deal.
-        </motion.p>
+          <motion.h1 custom={1} initial="hidden" animate="visible" variants={fadeUp}
+            className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-tight mb-6">
+            Close More Deals.<br />
+            <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+              Build Lasting Relationships.
+            </span>
+          </motion.h1>
 
-        <motion.div custom={3} initial="hidden" animate="visible" variants={fadeUp}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-          <button
-            onClick={() => router.push('/login?mode=register')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-lg hover:bg-primary/90 active:scale-[0.98] transition-all shadow-2xl shadow-primary/25"
-          >
-            Start for Free <ArrowRight className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => router.push('/login')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-muted/30 border border-border/50 text-foreground font-semibold text-lg hover:bg-muted/50 active:scale-[0.98] transition-all"
-          >
-            Sign In
-          </button>
-        </motion.div>
+          <motion.p custom={2} initial="hidden" animate="visible" variants={fadeUp}
+            className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
+            The CRM built for ambitious teams. Manage contacts, track your pipeline,
+            and collaborate seamlessly — from your first lead to your biggest deal.
+          </motion.p>
 
-        {/* Stats strip */}
-        <motion.div custom={4} initial="hidden" animate="visible" variants={fadeUp}
-          className="flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">
-          {['500+ active teams', '50,000+ deals tracked', '6 built-in roles', '99.9% uptime'].map((stat) => (
-            <div key={stat} className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-              {stat}
-            </div>
-          ))}
-        </motion.div>
+          <motion.div custom={3} initial="hidden" animate="visible" variants={fadeUp}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 pointer-events-auto w-full sm:w-auto">
+            <button
+              onClick={() => router.push('/login?mode=register')}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-lg hover:bg-primary/90 active:scale-[0.98] transition-all shadow-2xl shadow-primary/25"
+            >
+              Start for Free <ArrowRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => router.push('/login')}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-background/80 backdrop-blur-md border border-border/50 text-foreground font-semibold text-lg hover:bg-muted/50 active:scale-[0.98] transition-all"
+            >
+              Sign In
+            </button>
+          </motion.div>
+
+          {/* Stats strip */}
+          <motion.div custom={4} initial="hidden" animate="visible" variants={fadeUp}
+            className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm text-muted-foreground font-medium pointer-events-auto">
+            {['500+ active teams', '50,000+ deals tracked', '6 built-in roles', '99.9% uptime'].map((stat) => (
+              <div key={stat} className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/20">
+                <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                {stat}
+              </div>
+            ))}
+          </motion.div>
+        </div>
       </section>
 
       {/* ── Features ───────────────────────────────────────── */}
