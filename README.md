@@ -34,7 +34,6 @@ A production-grade, multi-tenant SaaS CRM built with Next.js 16, Express, Postgr
 | Tailwind CSS | 4.2.0 | Utility-first CSS |
 | Framer Motion | 12.42.2 | Animations & page transitions |
 | @dnd-kit | 6.3.1 | Drag-and-drop Kanban |
-| Spline | 4.1.0 | 3D scenes (landing page) |
 | React Hook Form | 7.80.0 | Form management |
 | Zod | 4.4.3 | Schema validation |
 | Recharts | 3.9.1 | Charts (dashboard) |
