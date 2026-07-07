@@ -147,7 +147,7 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.97 }}
                 transition={{ duration: 0.12 }}
-                className="absolute top-full right-0 mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
+                className="absolute top-full right-0 mt-2 w-80 max-w-[90vw] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
               >
                 <div className="px-4 py-3 border-b border-border bg-muted/20">
                   <p className="text-sm font-semibold text-foreground">Notifications</p>
@@ -225,7 +225,7 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
                 initial={{ opacity: 0, y: -6, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.12 }}
-                className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
+                className="absolute top-full right-0 mt-2 w-56 max-w-[90vw] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
               >
                 {/* Info header */}
                 <div className="px-4 py-3 border-b border-border bg-muted/20">

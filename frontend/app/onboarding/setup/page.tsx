@@ -166,27 +166,27 @@ export default function SetupPage() {
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center justify-center gap-0 mb-8">
+        <div className="flex items-center justify-center mb-8 px-2">
           {STEPS.map((s, i) => {
             const Icon = s.icon;
             const done    = step > s.id;
             const current = step === s.id;
             return (
               <React.Fragment key={s.id}>
-                <div className="flex flex-col items-center gap-1">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                <div className="flex flex-col items-center gap-1 min-w-0">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 text-sm sm:text-base ${
                     done    ? 'bg-green-500 text-white' :
                     current ? 'bg-primary text-white ring-4 ring-primary/20' :
                               'bg-muted text-muted-foreground'
                   }`}>
-                    {done ? <CheckCircle className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                    {done ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : <Icon className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </div>
-                  <span className={`text-xs font-medium ${current ? 'text-primary' : done ? 'text-green-500' : 'text-muted-foreground'}`}>
+                  <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap ${current ? 'text-primary' : done ? 'text-green-500' : 'text-muted-foreground'}`}>
                     {s.label}
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-3 mb-5 transition-colors ${step > s.id ? 'bg-green-500' : 'bg-border'}`} />
+                  <div className={`flex-1 h-0.5 mx-1 sm:mx-3 mb-4 sm:mb-5 transition-colors ${step > s.id ? 'bg-green-500' : 'bg-border'}`} />
                 )}
               </React.Fragment>
             );

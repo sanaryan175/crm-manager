@@ -292,12 +292,12 @@ export default function ReportsPage() {
   return (
     <motion.div className="p-6 space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Reports & Files</h1>
           <p className="text-muted-foreground mt-1">Upload and manage your organization&apos;s documents and reports</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
           <button
             onClick={() => setNewFolderModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted/50 transition-colors"
@@ -338,7 +338,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 max-w-sm">
+      <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 w-full sm:max-w-sm">
         <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         <input
           type="text"

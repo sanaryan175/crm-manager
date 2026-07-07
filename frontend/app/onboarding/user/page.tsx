@@ -337,7 +337,7 @@ export default function UserOnboardingPage() {
         {/* Appearance */}
         <Card className="p-6 shadow-xl border border-border/40 bg-card/80 backdrop-blur-sm mb-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Appearance</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {THEMES.map((t) => (
               <button
                 key={t.value}

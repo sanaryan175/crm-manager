@@ -213,7 +213,7 @@ function OrgEditForm({
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Organization Name *</label>
         <input className={inp} value={name} onChange={e => setName(e.target.value)} required />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Country</label>
           <input className={inp} value={country} onChange={e => setCountry(e.target.value)} placeholder="US" />
@@ -238,7 +238,7 @@ function OrgEditForm({
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timezone</label>
         <input className={inp} value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="UTC" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Format</label>
           <select className={inp} value={dateFormat} onChange={e => setDateFormat(e.target.value)}>
@@ -430,20 +430,22 @@ export default function SettingsPage() {
       transition={{ duration: 0.3 }}
     >
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account and team</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+          <p className="text-muted-foreground mt-1">Manage your account and team</p>
+        </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border overflow-x-auto flex-nowrap scrollbar-none">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'

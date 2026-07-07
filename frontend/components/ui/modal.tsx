@@ -54,7 +54,7 @@ export default function Modal({
               sizes[size]
             )}
           >
-            <div className="bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-card border border-border rounded-lg shadow-xl overflow-hidden max-h-[85vh] flex flex-col">
               {/* Header */}
               <div className="flex items-start justify-between p-4 sm:p-6 border-b border-border">
                 <div>
@@ -72,7 +72,7 @@ export default function Modal({
               </div>
 
               {/* Content */}
-              <div className="p-4 sm:p-6">{children}</div>
+              <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
             </div>
           </motion.div>
         </>

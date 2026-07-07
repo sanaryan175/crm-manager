@@ -243,14 +243,14 @@ export default function ActivitiesPage() {
   return (
     <motion.div className="p-6 space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Activities</h1>
           <p className="text-muted-foreground mt-1">Track all your calls, emails, meetings, and tasks</p>
         </div>
         <button
           onClick={() => setNewOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           New Activity
@@ -259,7 +259,7 @@ export default function ActivitiesPage() {
 
       {/* Toolbar */}
       <Card className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+        <div className="flex-1 min-w-[140px] sm:min-w-[200px] flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
           <input
             type="text"
             placeholder="Search activities..."
@@ -273,7 +273,7 @@ export default function ActivitiesPage() {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="px-3 py-2 rounded-lg bg-muted/50 outline-none text-sm">
             <option value="">All types</option>
             {Object.entries(ACTIVITY_TYPES).map(([key, cfg]) => (
