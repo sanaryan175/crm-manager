@@ -3,8 +3,8 @@ services:
     name: crm-backend
     runtime: node
     rootDir: .
-    buildCommand: npm install && npm run build && npx prisma generate
-    startCommand: npx prisma migrate deploy && node dist/server.js
+    buildCommand: npm install && npm run build && node node_modules/prisma/build/index.js generate
+    startCommand: node node_modules/prisma/build/index.js migrate deploy && node dist/server.js
     envVars:
       - key: NODE_ENV
         value: production
