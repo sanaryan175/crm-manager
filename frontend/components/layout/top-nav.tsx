@@ -57,11 +57,14 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
     }
   }, []);
 
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
-
-  // Poll for new notifications every 30s so the badge stays fresh
+  // Fetch immediately when user becomes available (after auth loads)
   useEffect(() => {
-    const id = setInterval(fetchNotifications, 30_000);
+    if (user) fetchNotifications();
+  }, [user, fetchNotifications]);
+
+  // Poll for new notifications every 15s so the badge stays fresh
+  useEffect(() => {
+    const id = setInterval(fetchNotifications, 15_000);
     return () => clearInterval(id);
   }, [fetchNotifications]);
 
