@@ -59,6 +59,12 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
 
+  // Poll for new notifications every 30s so the badge stays fresh
+  useEffect(() => {
+    const id = setInterval(fetchNotifications, 30_000);
+    return () => clearInterval(id);
+  }, [fetchNotifications]);
+
   const displayUnread = notifications.filter((n) => !seenIds.has(n.id)).length;
 
   const markSeen = (id: string) => {
