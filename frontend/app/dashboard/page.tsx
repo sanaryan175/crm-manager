@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Mail, ChevronDown, CheckCircle, Circle, ArrowRight, X, Sparkles, LayoutDashboard, AlertCircle } from 'lucide-react';
+import { UserPlus, Mail, ChevronDown } from 'lucide-react';
 import DashboardMetrics from '@/components/dashboard/metrics';
 import PipelineOverview from '@/components/dashboard/pipeline-overview';
 import RecentActivities from '@/components/dashboard/recent-activities';
@@ -14,7 +14,7 @@ import Modal from '@/components/ui/modal';
 import { useAuth, useUI } from '@/lib/context';
 import { useInvitations, useRoles } from '@/lib/hooks';
 import { INVITE_PERMISSIONS } from '@/lib/rbac';
-import { apiFetch } from '@/lib/api';
+
 
 // ─── Invite Member Modal ──────────────────────────────────────────────────────
 function InviteMemberModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -131,114 +131,6 @@ const ROLE_SUBTITLES: Record<string, string> = {
   support:       "this is your support queue",
 };
 
-// ─── Dashboard Checklist Widget ────────────────────────────────────────────────
-function OnboardingChecklistWidget() {
-  const { user, hasPermission } = useAuth();
-  const router = useRouter();
-
-  const [counts, setCounts] = useState({ contacts: -1, deals: -1, activities: -1, invitations: -1 });
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    const val = typeof window !== 'undefined' ? localStorage.getItem('dismissed_checklist') : null;
-    if (val === 'true') setDismissed(true);
-  }, []);
-
-  const loadCounts = useCallback(async () => {
-    try {
-      const [conRes, dealRes, actRes, invRes] = await Promise.allSettled([
-        apiFetch('/contacts'),
-        apiFetch('/deals'),
-        apiFetch('/activities'),
-        apiFetch('/invitations'),
-      ]);
-      setCounts({
-        contacts:    conRes.status  === 'fulfilled' ? (conRes.value?.length  ?? 0) : 0,
-        deals:       dealRes.status === 'fulfilled' ? (dealRes.value?.length ?? 0) : 0,
-        activities:  actRes.status  === 'fulfilled' ? (actRes.value?.length  ?? 0) : 0,
-        invitations: invRes.status  === 'fulfilled' ? (invRes.value?.length  ?? 0) : 0,
-      });
-    } catch {
-      setCounts({ contacts: 0, deals: 0, activities: 0, invitations: 0 });
-    }
-  }, []);
-
-  useEffect(() => { loadCounts(); }, [loadCounts]);
-
-  if (dismissed || counts.contacts === -1) return null;
-
-  const items = [
-    ...(hasPermission('user.invite') ? [{ id: 'invite', label: 'Invite a team member', done: counts.invitations > 0, href: '#invite' as const }] : []),
-    { id: 'contact',  label: 'Create your first contact',    done: counts.contacts > 0,    href: '/contacts' as const },
-    { id: 'deal',     label: 'Create your first deal',       done: counts.deals > 0,       href: '/deals' as const },
-    { id: 'activity', label: 'Schedule your first activity', done: counts.activities > 0,  href: '/activities' as const },
-  ];
-
-  const allDone = items.every((i) => i.done);
-  if (allDone) return null;
-
-  const donePct = Math.round((items.filter((i) => i.done).length / items.length) * 100);
-
-  const handleDismiss = () => {
-    setDismissed(true);
-    if (typeof window !== 'undefined') localStorage.setItem('dismissed_checklist', 'true');
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-br from-primary/10 via-primary/5 to-accent/5 border border-primary/20 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="font-bold text-foreground text-sm">Getting Started</h3>
-        </div>
-        <button onClick={handleDismiss} className="p-1 rounded-md hover:bg-muted/30 transition-colors">
-          <X className="w-4 h-4 text-muted-foreground" />
-        </button>
-      </div>
-
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-2 bg-muted/30 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${donePct}%` }}
-            className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-          />
-        </div>
-        <span className="text-xs font-medium text-muted-foreground flex-shrink-0">{donePct}%</span>
-      </div>
-
-      <div className="space-y-2">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 text-sm">
-            {item.done ? (
-              <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-            ) : (
-              <Circle className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />
-            )}
-            {item.done ? (
-              <span className="text-muted-foreground line-through decoration-muted-foreground/40">{item.label}</span>
-            ) : (
-              <button
-                onClick={() => {
-                  if (item.id === 'invite') {
-                    document.getElementById('invite-btn')?.click();
-                  } else {
-                    router.push(item.href!);
-                  }
-                }}
-                className="text-foreground hover:text-primary transition-colors text-left"
-              >
-                {item.label}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user, hasPermission } = useAuth();
@@ -291,9 +183,6 @@ export default function DashboardPage() {
             </button>
           )}
         </motion.div>
-
-        {/* Onboarding Checklist Widget */}
-        <OnboardingChecklistWidget />
 
         {/* Quick Stats */}
         <motion.div variants={itemVariants}>
