@@ -81,6 +81,78 @@ async function main() {
 
   console.log('Created users:', [marcus.name, emily.name, david.name].join(', '));
 
+  // ─── Data assigned to Sarah (owner) so she sees notifications ───
+  const sarahContact = await prisma.contact.create({
+    data: {
+      organizationId: org.id,
+      firstName: 'Priya', lastName: 'Sharma',
+      email: 'priya@startupxyz.com', phone: '+1-555-0201',
+      company: 'StartupXYZ', jobTitle: 'CEO',
+      status: ContactStatus.active, source: ContactSource.website,
+      tags: ['startup', 'hot'],
+      assignedToId: owner.id, createdById: owner.id,
+    },
+  });
+  await prisma.contact.create({
+    data: {
+      organizationId: org.id,
+      firstName: 'Tom', lastName: 'Nash',
+      email: 'tom@nashconsulting.com', phone: '+1-555-0202',
+      company: 'Nash Consulting', jobTitle: 'Principal',
+      status: ContactStatus.inactive, source: ContactSource.event,
+      tags: ['consulting', 'follow-up'],
+      assignedToId: owner.id, createdById: owner.id,
+    },
+  });
+
+  const sarahDeal = await prisma.deal.create({
+    data: {
+      organizationId: org.id,
+      title: 'StartupXYZ SaaS Partnership',
+      contactId: sarahContact.id, company: 'StartupXYZ',
+      value: 75000,
+      stage: DealStage.negotiation, priority: DealPriority.high,
+      expectedCloseDate: new Date('2026-08-15'),
+      assignedToId: owner.id, createdById: owner.id,
+      notes: 'Interested in annual plan with onboarding.',
+    },
+  });
+  await prisma.deal.create({
+    data: {
+      organizationId: org.id,
+      title: 'Nash Consulting Retainer',
+      value: 12000,
+      stage: DealStage.new, priority: DealPriority.low,
+      assignedToId: owner.id, createdById: owner.id,
+    },
+  });
+
+  await prisma.activity.createMany({
+    data: [
+      {
+        organizationId: org.id, type: ActivityType.meeting,
+        subject: 'Strategy call with Priya Sharma',
+        contactId: sarahContact.id, dealId: sarahDeal.id,
+        assignedToId: owner.id, createdById: owner.id,
+        dueDate: new Date('2026-07-20'), completed: false,
+      },
+      {
+        organizationId: org.id, type: ActivityType.task,
+        subject: 'Draft partnership agreement for StartupXYZ',
+        contactId: sarahContact.id, dealId: sarahDeal.id,
+        assignedToId: owner.id, createdById: owner.id,
+        dueDate: new Date('2026-07-25'), completed: false,
+      },
+      {
+        organizationId: org.id, type: ActivityType.email,
+        subject: 'Follow-up with Tom Nash',
+        assignedToId: owner.id, createdById: owner.id,
+        dueDate: new Date('2026-07-18'), completed: false,
+      },
+    ],
+  });
+  console.log('Created data assigned to Sarah (owner) for notifications');
+
   // Contacts
   const c1 = await prisma.contact.create({
     data: {
