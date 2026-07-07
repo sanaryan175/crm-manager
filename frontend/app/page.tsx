@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
-const Spline = dynamic(() => import('@splinetool/react-spline'), { ssr: false });
+const Spline = dynamic(() => import('@splinetool/react-spline'), {
+  ssr: false,
+  loading: () => null,
+});
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, CheckCircle, Users, Briefcase, BarChart3,
@@ -177,6 +180,8 @@ export default function LandingPage() {
   const { user, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const [splineLoaded, setSplineLoaded] = useState(false);
+
   // Auth redirect
   useEffect(() => {
     if (isLoading || !user) return;
@@ -281,18 +286,30 @@ export default function LandingPage() {
       <section className="relative pt-32 pb-24 sm:pt-40 sm:pb-32 px-4 text-center min-h-[80vh] flex flex-col items-center justify-center">
         
         {/* Spline 3D Embed */}
-        <div className="absolute inset-0 z-0 pointer-events-auto">
-          <Spline scene="https://my.spline.design/distortingtypography-8b7CpYH2054kCcRCAddFhYq1/scene.splinecode" />
-        </div>
+        <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          className="absolute inset-0 z-0 pointer-events-auto">
+          {!splineLoaded && (
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-background" />
+          )}
+          <Spline
+            scene="https://my.spline.design/distortingtypography-8b7CpYH2054kCcRCAddFhYq1/scene.splinecode"
+            onLoad={() => setSplineLoaded(true)}
+          />
+        </motion.div>
 
-        <div className="relative z-10 pointer-events-none flex flex-col items-center max-w-5xl mx-auto w-full">
-          <motion.div custom={0} initial="hidden" animate="visible" variants={fadeUp}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={splineLoaded ? { opacity: 1 } : { opacity: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="relative z-10 pointer-events-none flex flex-col items-center max-w-5xl mx-auto w-full"
+        >
+          <motion.div custom={0} initial="hidden" animate={splineLoaded ? "visible" : "hidden"} variants={fadeUp}
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-6 pointer-events-auto">
             <Sparkles className="w-3.5 h-3.5" />
             Built for modern sales teams
           </motion.div>
 
-          <motion.h1 custom={1} initial="hidden" animate="visible" variants={fadeUp}
+          <motion.h1 custom={1} initial="hidden" animate={splineLoaded ? "visible" : "hidden"} variants={fadeUp}
             className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-tight mb-6">
             Close More Deals.<br />
             <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
@@ -300,13 +317,13 @@ export default function LandingPage() {
             </span>
           </motion.h1>
 
-          <motion.p custom={2} initial="hidden" animate="visible" variants={fadeUp}
+          <motion.p custom={2} initial="hidden" animate={splineLoaded ? "visible" : "hidden"} variants={fadeUp}
             className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
             The CRM built for ambitious teams. Manage contacts, track your pipeline,
             and collaborate seamlessly — from your first lead to your biggest deal.
           </motion.p>
 
-          <motion.div custom={3} initial="hidden" animate="visible" variants={fadeUp}
+          <motion.div custom={3} initial="hidden" animate={splineLoaded ? "visible" : "hidden"} variants={fadeUp}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 pointer-events-auto w-full sm:w-auto">
             <button
               onClick={() => router.push('/login?mode=register')}
@@ -323,7 +340,7 @@ export default function LandingPage() {
           </motion.div>
 
           {/* Stats strip */}
-          <motion.div custom={4} initial="hidden" animate="visible" variants={fadeUp}
+          <motion.div custom={4} initial="hidden" animate={splineLoaded ? "visible" : "hidden"} variants={fadeUp}
             className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm text-muted-foreground font-medium pointer-events-auto">
             {['500+ active teams', '50,000+ deals tracked', '6 built-in roles', '99.9% uptime'].map((stat) => (
               <div key={stat} className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/20">
@@ -332,7 +349,7 @@ export default function LandingPage() {
               </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
       </section>
 
       {/* ── Features ───────────────────────────────────────── */}

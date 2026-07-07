@@ -311,14 +311,14 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const formatMoney = useCallback(
     (value: number) =>
-      formatCurrency(value, baseCurrency),
-    [baseCurrency]
+      isLoading ? '—' : formatCurrency(value, baseCurrency),
+    [baseCurrency, isLoading]
   );
 
   const formatMoneyCompact = useCallback(
     (value: number) =>
-      formatCurrency(value, baseCurrency, { compact: true }),
-    [baseCurrency]
+      isLoading ? '—' : formatCurrency(value, baseCurrency, { compact: true }),
+    [baseCurrency, isLoading]
   );
 
   const formatDateTime = useCallback(
