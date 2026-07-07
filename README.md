@@ -245,21 +245,6 @@ The app is now running at `http://localhost:3000`.
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | **Yes** | `http://localhost:5000/api` | Backend API base URL |
 
----
-
-## Demo Accounts
-
-All seeded accounts use password: `password123`
-
-| Email | Role | Permissions |
-|---|---|---|
-| `sarah@company.com` | **Owner** | Full access (all 22 permissions) |
-| `marcus@company.com` | **Admin** | 16 permissions (no org delete/billing) |
-| `emily@company.com` | **Sales Manager** | 12 permissions (team-level) |
-| `david@company.com` | **Sales Rep** | 10 permissions (own records only) |
-
----
-
 ## API Reference
 
 All endpoints are prefixed with `/api`. Authentication uses `Authorization: Bearer <token>`.
